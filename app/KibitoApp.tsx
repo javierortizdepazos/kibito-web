@@ -893,7 +893,7 @@ export default function KibitoApp() {
       container.innerHTML =
         pageHeader("guides-fund", "trending-up", t("guides.fund.title"), "") +
         `<div class="callout"><span class="ic" style="color:var(--accent);">${iconSvg("info", 20)}</span><div>${t("guides.fund.callout")}</div></div>
-         <div class="doc-grid" style="max-width:170px;">${doc.map(docCard).join("")}</div>
+         <div class="doc-grid" style="max-width:170px;">${doc.map((d) => docCard(d)).join("")}</div>
          ${sectionTitle(t("guides.fund.nutshell"))}
          <div class="two-col-grid">
            <div>${subTitle("Pitch Deck")}${numbered(["Vision", "Problem", "Solution/Product", "Business Model", "Market Size", "KPIs & Financials", "Team", "Competition", "Roadmap", "Deal structure"])}</div>
@@ -915,7 +915,7 @@ export default function KibitoApp() {
          ${sectionTitle(t("guides.howToUse"))}
          ${list([t("guides.pitch.li2a"), t("guides.pitch.li2b"), t("guides.copyUse")])}
          ${sectionTitle(t("guides.download"))}
-         <div class="doc-grid">${downloads.map(docCard).join("")}</div>
+         <div class="doc-grid">${downloads.map((d) => docCard(d)).join("")}</div>
          ${sectionTitle(t("guides.otherReads"))}
          <div class="doc-row"><a class="page-link" href="https://blog.creandum.com/creandum-series-a-deck-template-21a6df9c1ac4" target="_blank" rel="noopener"><span class="ic" style="display:inline-flex;margin-right:6px;">${iconSvg("file-text", 16)}</span>${t("guides.pitchOtherLink")} ↗</a></div>`;
       bindBreadcrumb(container);
@@ -932,7 +932,7 @@ export default function KibitoApp() {
          ${sectionTitle(t("guides.howToUse"))}
          ${list([t("guides.board.li2a"), t("guides.board.li2b"), t("guides.board.li3"), t("guides.copyUse")])}
          ${sectionTitle(t("guides.download"))}
-         <div class="doc-grid">${downloads.map(docCard).join("")}</div>
+         <div class="doc-grid">${downloads.map((d) => docCard(d)).join("")}</div>
          ${sectionTitle(t("guides.otherReads"))}
          <div class="doc-row"><a class="page-link" href="https://www.linkedin.com/feed/update/urn:li:activity:7132773038181212160/" target="_blank" rel="noopener"><span class="ic" style="display:inline-flex;margin-right:6px;">${iconSvg("file-text", 16)}</span>${t("guides.boardOtherLink")} ↗</a></div>`;
       bindBreadcrumb(container);
@@ -979,7 +979,7 @@ export default function KibitoApp() {
       const docs = docsByTitles(cfg.docs);
       container.innerHTML =
         pageHeader(paneId, cfg.icon, t(cfg.titleKey), "") +
-        (docs.length ? `<div class="doc-grid">${docs.map(docCard).join("")}</div>` : "") +
+        (docs.length ? `<div class="doc-grid">${docs.map((d) => docCard(d)).join("")}</div>` : "") +
         chunks.map((c) => `<div class="callout"><span class="ic" style="color:var(--accent);">${iconSvg("lightbulb", 20)}</span><div><b>${esc(c.section)}</b><br>${esc(c.content)}</div></div>`).join("");
       bindBreadcrumb(container);
     }
