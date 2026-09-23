@@ -1,0 +1,23 @@
+# dependencies
+node_modules/
+server/node_modules/
+
+# Next.js build output
+.next/
+out/
+tsconfig.tsbuildinfo
+
+# backend build output
+server/dist/
+
+# env files (nunca subir secretos)
+.env
+.env.local
+.env*.local
+server/.env
+
+# OS / editor
+.DS_Store
+
+# backups locales sueltos
+*.bak
