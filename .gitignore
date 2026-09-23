@@ -21,3 +21,5 @@ server/.env
 
 # backups locales sueltos
 *.bak
+.vercel
+.env*

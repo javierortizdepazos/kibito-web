@@ -141,6 +141,11 @@ export const I18N: Dict = {
   "chat.thinking": { es: "Pensando…", en: "Thinking…" },
   "chat.noReply": { es: "No he podido responder ahora mismo.", en: "I couldn't reply right now." },
   "chat.noBackend": { es: "No he podido conectar con el backend todavía.", en: "Couldn't connect to the backend yet." },
+  "chat.escalation.title": { es: "¿Quieres que lo comparta con el equipo de Kibo?", en: "Want me to share this with the Kibo team?" },
+  "chat.escalation.send": { es: "Enviar al equipo", en: "Send to the team" },
+  "chat.escalation.missing": { es: "Escribe tu pregunta y tu nombre", en: "Add your question and your name" },
+  "chat.escalation.sent": { es: "Enviado — el equipo de Kibo te contactará pronto.", en: "Sent — the Kibo team will reach out soon." },
+  "chat.escalation.contactLabel": { es: "Pregunta sin responder por Kibito", en: "Question Kibito couldn't answer" },
 
   // ---------- Our Principles ----------
   "principles.subtitle": { es: "El manifiesto y los valores que guían a Kibo Ventures.", en: "The manifesto and values that guide Kibo Ventures." },

@@ -28,19 +28,31 @@ const SYSTEM_PROMPT = `Eres Kibito, el asistente de Kibo Ventures para founders 
 
 Ayudas a los founders a encontrar contactos (fondos VC, venture debt, financiación
 pública, abogados, recruiters, prensa, advisors, restaurantes recomendados, eventos,
-perks) y documentos/plantillas reales, y a consultar las guías internas de Kibo.
+perks) y documentos/plantillas reales, y a consultar las guías internas de Kibo
+(pitch deck, board meetings, fundraising, reporting, principios de Kibo, VC 101).
 
-Reglas importantes:
-- Nunca inventes un contacto ni un dato que no venga de una tool. Si no lo
-  encuentras, dilo con naturalidad y ofrece pedir una intro si tiene sentido.
+Cómo trabajar:
+- Antes de responder con datos concretos (contactos, cifras, plantillas), usa
+  \`search_contacts\` o \`search_knowledge\` — no respondas de memoria sobre el
+  portfolio o los recursos internos de Kibo, esos SIEMPRE vienen de las tools.
+- Puedes responder directamente, sin tools, preguntas generales de conocimiento de
+  negocio/VC (p.ej. "qué es un SAFE", "cómo funciona una liquidation preference")
+  si estás seguro de la respuesta.
+- Nunca inventes un contacto ni un dato que debería venir de una tool. Si buscas y
+  no lo encuentras, dilo con naturalidad y ofrece pedir una intro si tiene sentido.
 - Cuando un founder pida contactar directamente con alguien, usa \`request_intro\`
-  en vez de intentar dar tú el contacto — la decisión la toma el equipo de Kibo.
+  en vez de dar tú el contacto — la decisión la toma el equipo de Kibo.
+- Si de verdad no sabes cómo ayudar con algo (no es un tema de contactos/recursos
+  de Kibo ni algo que sepas con seguridad), usa \`flag_unanswered\` con la pregunta
+  del founder, y responde con naturalidad que no tienes esa información pero que
+  el equipo de Kibo puede ayudarle directamente.
 - Sé breve, directo y cercano. Responde en el idioma en que te escriba el founder.`;
 
 async function runTool(sb: any, name: string, input: any) {
   if (name === "search_contacts") return searchContacts(sb, input.table, input.filters || {});
   if (name === "search_knowledge") return searchKnowledge(sb, input.query_text || "");
   if (name === "request_intro") return requestIntro(sb, input);
+  if (name === "flag_unanswered") return { ok: true };
   return { error: `Tool desconocida: ${name}` };
 }
 
@@ -64,6 +76,7 @@ app.post("/api/kibito", async (req, res) => {
     const sb = getSupabaseServerClient();
 
     let messages: OpenAI.Chat.ChatCompletionMessageParam[] = [...(history || []), { role: "user", content: message }];
+    let escalatedQuestion: string | null = null;
 
     // Bucle de tool-use: seguimos llamando al modelo y ejecutando tools
     // hasta que responda con texto final.
@@ -79,7 +92,11 @@ app.post("/api/kibito", async (req, res) => {
       const msg = choice.message;
 
       if (!msg.tool_calls || msg.tool_calls.length === 0) {
-        return res.json({ reply: msg.content || "", history: [...messages, msg] });
+        return res.json({
+          reply: msg.content || "",
+          history: [...messages, msg],
+          ...(escalatedQuestion ? { escalated: true, question: escalatedQuestion } : {}),
+        });
       }
 
       messages = [...messages, msg];
@@ -90,6 +107,9 @@ app.post("/api/kibito", async (req, res) => {
           args = JSON.parse(call.function.arguments || "{}");
         } catch {
           args = {};
+        }
+        if (call.function.name === "flag_unanswered" && args.question) {
+          escalatedQuestion = args.question;
         }
         const output = await runTool(sb, call.function.name, args);
         messages.push({ role: "tool", tool_call_id: call.id, content: JSON.stringify(output) });

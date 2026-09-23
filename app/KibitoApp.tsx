@@ -1486,10 +1486,53 @@ export default function KibitoApp() {
     function addMsg(role: "user" | "bot", text: string) {
       const el = document.createElement("div");
       el.className = "msg " + (role === "user" ? "user" : "bot");
-      el.innerHTML = (role === "user" ? "" : '<div class="msg-label">Kibito</div>') + esc(text);
+      el.innerHTML = (role === "user" ? "" : '<div class="msg-label">Kibito</div>') + (role === "user" ? esc(text) : mdLite(text));
       chatScrollRef.current!.appendChild(el);
       chatScrollRef.current!.scrollTop = chatScrollRef.current!.scrollHeight;
       return el;
+    }
+    function renderEscalationBox(afterEl: HTMLElement, question: string) {
+      const box = document.createElement("div");
+      box.className = "escalation-box";
+      box.innerHTML = `
+        <div class="escalation-title">${iconSvg("message", 14)}${t("chat.escalation.title")}</div>
+        <textarea class="intro-input" rows="2">${esc(question)}</textarea>
+        <input class="intro-input" name="founder_name" placeholder="${esc(t("intro.yourName"))}" style="margin-top:6px;">
+        <input class="intro-input" name="startup_name" placeholder="${esc(t("intro.startup"))}" style="margin-top:6px;">
+        <button type="button" class="modal-book-btn escalation-submit" style="margin-top:8px;">${iconSvg("mail", 14)}${t("chat.escalation.send")}</button>
+      `;
+      afterEl.insertAdjacentElement("afterend", box);
+      chatScrollRef.current!.scrollTop = chatScrollRef.current!.scrollHeight;
+      const btn = box.querySelector(".escalation-submit") as HTMLButtonElement;
+      btn.addEventListener("click", async () => {
+        const reason = (box.querySelector("textarea") as HTMLTextAreaElement).value.trim();
+        const founderName = (box.querySelector('[name="founder_name"]') as HTMLInputElement).value.trim();
+        const startupName = (box.querySelector('[name="startup_name"]') as HTMLInputElement).value.trim();
+        if (!reason || !founderName) {
+          btn.textContent = t("chat.escalation.missing");
+          return;
+        }
+        btn.disabled = true;
+        btn.innerHTML = t("common.sending");
+        try {
+          const res = await fetch(`${API_BASE}/api/request-intro`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              founder_name: founderName,
+              startup_name: startupName,
+              contact_requested: t("chat.escalation.contactLabel"),
+              reason,
+            }),
+          });
+          const data = await res.json();
+          if (!res.ok || data.error) throw new Error(data.error || "error");
+          box.innerHTML = `<div class="escalation-sent">${iconSvg("check", 14, "var(--accent-green)")}${t("chat.escalation.sent")}</div>`;
+        } catch {
+          btn.disabled = false;
+          btn.innerHTML = `${iconSvg("mail", 14)}${t("chat.escalation.send")}`;
+        }
+      });
     }
     async function sendMessage(text: string) {
       chatWelcomeRef.current!.style.display = "none";
@@ -1506,8 +1549,11 @@ export default function KibitoApp() {
         });
         const data = await res.json();
         thinkingEl.classList.remove("thinking");
-        thinkingEl.innerHTML = '<div class="msg-label">Kibito</div>' + esc(data.reply || "No he podido responder ahora mismo.");
+        thinkingEl.innerHTML = '<div class="msg-label">Kibito</div>' + mdLite(data.reply || "No he podido responder ahora mismo.");
         if (data.history) chatHistory = data.history;
+        if (data.escalated) {
+          renderEscalationBox(thinkingEl, data.question || text);
+        }
       } catch (err) {
         thinkingEl.classList.remove("thinking");
         thinkingEl.innerHTML = '<div class="msg-label">Kibito</div>' + esc("No he podido conectar con el backend todavía.");

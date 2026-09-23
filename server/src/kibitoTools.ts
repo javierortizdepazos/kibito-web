@@ -128,6 +128,21 @@ export const TOOL_DEFINITIONS = [
       required: ["founder_name", "contact_requested", "reason"],
     },
   },
+  {
+    name: "flag_unanswered",
+    description:
+      "Llama a esta tool cuando NO puedas responder la pregunta del founder con search_contacts, search_knowledge " +
+      "ni tu conocimiento general sobre Kibo Ventures — es decir, cuando de verdad no sepas la respuesta. " +
+      "No la uses para preguntas que sí puedas responder. Después de llamarla, responde con naturalidad explicando " +
+      "que no tienes esa información pero que el equipo de Kibo puede ayudarle directamente.",
+    input_schema: {
+      type: "object",
+      properties: {
+        question: { type: "string", description: "La pregunta original del founder, tal cual la hizo." },
+      },
+      required: ["question"],
+    },
+  },
 ];
 
 // Mismas tools, en el formato de function-calling que espera la API de OpenAI.
