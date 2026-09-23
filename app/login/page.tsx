@@ -108,7 +108,8 @@ export default function LoginPage() {
           </div>
         </div>
 
-        {/* Local Dev Fast Access */}
+        {/* Local Dev Fast Access — solo visible en entorno de desarrollo */}
+        {process.env.NODE_ENV === "development" && (
         <div
           style={{
             background: "rgba(0, 0, 48, 0.03)",
@@ -178,6 +179,7 @@ export default function LoginPage() {
             Entrar al Portal (Bypass Desarrollo)
           </button>
         </div>
+        )}
 
         <div
           style={{
