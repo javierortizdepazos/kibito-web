@@ -24,8 +24,11 @@ export default function LoginPage() {
     });
     if (error) {
       setStatus("error");
+      const isRateLimited = (error as any).status === 429 || /rate limit/i.test(error.message || "");
       setErrorMsg(
-        "Ese email no tiene acceso al portal. Si crees que deberías tenerlo, contacta con tu interlocutor en Kibo Ventures."
+        isRateLimited
+          ? "Se han pedido demasiados links de acceso seguidos. Espera un minuto y vuelve a intentarlo."
+          : "Ese email no tiene acceso al portal. Si crees que deberías tenerlo, contacta con tu interlocutor en Kibo Ventures."
       );
     } else {
       setStatus("sent");
