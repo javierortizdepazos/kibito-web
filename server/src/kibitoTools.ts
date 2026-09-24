@@ -213,22 +213,6 @@ export const TOOL_DEFINITIONS = [
     },
   },
   {
-    name: "decline",
-    description:
-      "Úsala cuando el mensaje NO sea una consulta sobre los datos de Kibo Ventures (contactos, restaurantes, eventos, " +
-      "perks, documentos, guías internas, intros): p.ej. escribir código, redactar textos, traducir, cultura general, " +
-      "matemáticas, opiniones o cualquier otro tema. También para saludos o mensajes sin pregunta. " +
-      "El backend responde con un mensaje fijo; no escribas tú la respuesta.",
-    input_schema: {
-      type: "object",
-      properties: {
-        kind: { type: "string", enum: ["greeting", "out_of_scope"], description: "greeting = saludo o mensaje sin pregunta." },
-        language: { type: "string", enum: ["es", "en"], description: "Idioma del mensaje del founder." },
-      },
-      required: ["kind", "language"],
-    },
-  },
-  {
     name: "flag_unanswered",
     description:
       "Llama a esta tool cuando NO puedas responder la pregunta del founder con search_contacts, search_knowledge " +
