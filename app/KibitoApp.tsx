@@ -155,7 +155,6 @@ export default function KibitoApp() {
           { id: "guides-pitch", labelKey: "nav.guides_pitch" },
           { id: "guides-fund", labelKey: "nav.guides_fund" },
           { id: "guides-vc101", labelKey: "nav.guides_vc101" },
-          { id: "guides-inst", labelKey: "nav.guides_inst" },
         ],
       },
       { id: "restaurants", icon: "utensils", labelKey: "nav.restaurants", children: REST_CITIES.map((c) => ({ id: "rest-" + c, label: c })) },
@@ -864,12 +863,6 @@ export default function KibitoApp() {
         title: "How to nail your new round",
         kc: ["How to nail your new round", "How to nail your Series A (Aquilino Peña presentation)"],
         docs: ["How to nail your new round (guía)", "How to nail your Series A (Aquilino)", "Venture Capital 101"],
-      },
-      "guides-inst": {
-        icon: "compass",
-        titleKey: "nav.guides_inst",
-        kc: ["Our Principles"],
-        docs: ["WELCOME TO THE KIBO FAMILY", "Sustainability & Governance", "Kibo Ventures ESG Report 2025", "Kibo Ventures in a nutshell", "AI Repository", "Our top recommendations for you"],
       },
     };
     // Reporting y Board Meetings tienen su propia estructura (como en las

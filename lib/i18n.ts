@@ -31,7 +31,6 @@ export const I18N: Dict = {
   "nav.guides_pitch": { es: "Pitch Deck", en: "Pitch Deck" },
   "nav.guides_fund": { es: "Fundraising", en: "Fundraising" },
   "nav.guides_vc101": { es: "VC 101", en: "VC 101" },
-  "nav.guides_inst": { es: "Institucional", en: "Institutional" },
   "nav.restaurants": { es: "Restaurantes", en: "Restaurants" },
   "nav.perks": { es: "Perks & Beneficios", en: "Perks & Benefits" },
   "nav.calendar": { es: "Calendar & Events", en: "Calendar & Events" },
