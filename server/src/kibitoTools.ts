@@ -29,19 +29,62 @@ function normalize(v: unknown): string {
     .toLowerCase();
 }
 
-// Todas las palabras de `needle` tienen que aparecer en `haystack`.
+// Formas alternativas de escribir un mismo valor (los datos usan la forma de la derecha).
+const SYNONYMS: [RegExp, string][] = [
+  [/\b(usa|eeuu|ee\.uu\.?|estados unidos|united states)\b/g, "us"],
+  [/\b(reino unido|united kingdom|england|inglaterra)\b/g, "uk"],
+  [/\bespana\b/g, "spain"],
+  [/\balemania\b/g, "germany"],
+  [/\bfrancia\b/g, "france"],
+  [/\blisboa\b/g, "lisbon"],
+  [/\blondres\b/g, "london"],
+];
+
+// Variantes de búsqueda: el texto tal cual y, si aplica, con los sinónimos sustituidos.
+function needleVariants(needle: string): string[] {
+  const base = normalize(needle);
+  let mapped = base;
+  for (const [re, to] of SYNONYMS) mapped = mapped.replace(re, to);
+  return mapped === base ? [base] : [base, mapped];
+}
+
+// Cada palabra de `needle` tiene que ser el inicio de alguna palabra de `haystack`
+// ("formal" encuentra "Formal", pero "us" no encuentra "Austria").
 function matchesAllWords(haystack: string, needle: string): boolean {
-  const words = normalize(needle).split(/\s+/).filter(Boolean);
-  return words.every((w) => haystack.includes(w));
+  const hayWords = normalize(haystack).split(/[^a-z0-9@.]+/).filter(Boolean);
+  return needleVariants(needle).some((variant) => {
+    const words = variant.split(/[^a-z0-9@.]+/).filter(Boolean);
+    return words.length > 0 && words.every((w) => hayWords.some((h) => h.startsWith(w)));
+  });
+}
+
+function hideRequestOnly(table: string, rows: any[]) {
+  if (table !== "recruiters") return rows;
+  return rows.map((r: any) => (r.contact_visibility === "request_only" ? { ...r, email: null, _note: "Contacto disponible solo bajo petición de intro." } : r));
 }
 
 export async function searchContacts(
   sb: SupabaseClient,
-  table: string,
+  table: string | undefined,
   filters: Record<string, string> = {},
   query = "",
   limit = 25
 ) {
+  // Sin tabla: busca `query` en todas (útil para nombres de personas o cuando no está claro dónde mirar).
+  if (!table || table === "all") {
+    if (!query.trim()) return { error: "Indica una tabla o un texto en `query`." };
+    const perTable = await Promise.all(
+      Object.keys(SEARCHABLE_TABLES).map(async (t) => {
+        const { data, error } = await sb.from(t).select("*").limit(1000);
+        if (error) return null;
+        const hits = (data || []).filter((r: any) => matchesAllWords(Object.values(r).join(" "), query));
+        return hits.length ? { table: t, count: hits.length, results: hideRequestOnly(t, hits.slice(0, 5)) } : null;
+      })
+    );
+    const found = perTable.filter(Boolean);
+    return { searched: "all_tables", count: found.length, results: found };
+  }
+
   const cfg = SEARCHABLE_TABLES[table];
   if (!cfg) return { error: `Tabla no permitida: ${table}` };
 
@@ -52,14 +95,14 @@ export async function searchContacts(
 
   let rows: any[] = data || [];
   const columns = new Set(rows.length ? Object.keys(rows[0]) : []);
-  const rowText = (r: any) => normalize(Object.values(r).join(" "));
+  const rowText = (r: any) => Object.values(r).join(" ");
 
   // Un filtro sobre una columna que no existe no rompe la búsqueda: su valor se busca en toda la fila.
   const keywords: string[] = query ? [query] : [];
   for (const [col, value] of Object.entries(filters || {})) {
     if (value === undefined || value === null || value === "") continue;
     if (columns.has(col)) {
-      rows = rows.filter((r) => matchesAllWords(normalize(r[col]), String(value)));
+      rows = rows.filter((r) => matchesAllWords(String(r[col] ?? ""), String(value)));
     } else {
       keywords.push(String(value));
     }
@@ -68,12 +111,7 @@ export async function searchContacts(
     rows = rows.filter((r) => matchesAllWords(rowText(r), kw));
   }
 
-  const total = rows.length;
-  rows = rows.slice(0, limit);
-  if (table === "recruiters") {
-    rows = rows.map((r: any) => (r.contact_visibility === "request_only" ? { ...r, email: null, _note: "Contacto disponible solo bajo petición de intro." } : r));
-  }
-  return { table, count: total, results: rows };
+  return { table, count: rows.length, results: hideRequestOnly(table, rows.slice(0, limit)) };
 }
 
 export async function searchKnowledge(sb: SupabaseClient, queryText: string, limit = 5) {
@@ -126,19 +164,24 @@ export const TOOL_DEFINITIONS = [
         .map(([t, c]) => `${t}(${c.textCols.join(", ")})`)
         .join("; ") +
       ". Restaurantes: formality vale 'Formal', 'Business Casual' o 'Casual'. " +
-      "Para personas, busca por apellido si no encuentras el nombre completo. Si no hay resultados, prueba con " +
+      "Países en vcs.hq_country: 'US', 'UK', 'Spain', 'Germany'… " +
+      "Para buscar a una persona por nombre usa table='all' y query con el nombre. Si no hay resultados, prueba con " +
       "menos filtros o con `query` antes de decir que no existe.",
     input_schema: {
       type: "object",
       properties: {
-        table: { type: "string", enum: Object.keys(SEARCHABLE_TABLES), description: "Qué tabla consultar." },
+        table: {
+          type: "string",
+          enum: [...Object.keys(SEARCHABLE_TABLES), "all"],
+          description: "Qué tabla consultar. Usa 'all' (con `query`) para buscar a una persona por nombre o si no sabes en qué tabla está.",
+        },
         filters: {
           type: "object",
           description: "Pares columna->valor a filtrar (coincidencia parcial). Usa solo columnas de la tabla elegida.",
         },
         query: { type: "string", description: "Palabras clave a buscar en cualquier columna de la tabla." },
       },
-      required: ["table"],
+      required: [],
     },
   },
   {
@@ -167,6 +210,22 @@ export const TOOL_DEFINITIONS = [
         reason: { type: "string", description: "Por qué quiere el founder esta intro." },
       },
       required: ["founder_name", "contact_requested", "reason"],
+    },
+  },
+  {
+    name: "decline",
+    description:
+      "Úsala cuando el mensaje NO sea una consulta sobre los datos de Kibo Ventures (contactos, restaurantes, eventos, " +
+      "perks, documentos, guías internas, intros): p.ej. escribir código, redactar textos, traducir, cultura general, " +
+      "matemáticas, opiniones o cualquier otro tema. También para saludos o mensajes sin pregunta. " +
+      "El backend responde con un mensaje fijo; no escribas tú la respuesta.",
+    input_schema: {
+      type: "object",
+      properties: {
+        kind: { type: "string", enum: ["greeting", "out_of_scope"], description: "greeting = saludo o mensaje sin pregunta." },
+        language: { type: "string", enum: ["es", "en"], description: "Idioma del mensaje del founder." },
+      },
+      required: ["kind", "language"],
     },
   },
   {
