@@ -2,21 +2,17 @@ import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 
 export async function middleware(request: NextRequest) {
-  // Acceso provisional por link con clave, para que el equipo pruebe sin login:
-  // https://…/?k=<ACCESS_KEY> guarda la clave en una cookie y con ella se entra sin sesión de Supabase.
-  // Sin ACCESS_KEY definida (o sin el link) todo funciona como antes: login obligatorio.
+  // Acceso provisional con contraseña compartida, para que el equipo pruebe sin login de Supabase:
+  // /acceso pide ACCESS_PASSWORD y, si es correcta, guarda la cookie kibito_pass (= ACCESS_KEY).
+  // Sin ACCESS_KEY y ACCESS_PASSWORD definidas todo funciona como antes: login obligatorio.
   const accessKey = process.env.ACCESS_KEY;
-  if (accessKey) {
-    // La clave solo usa [A-Za-z0-9_-]: se descarta lo que se cuele al copiar el link.
-    const fromQuery = request.nextUrl.searchParams.get("k")?.replace(/[^A-Za-z0-9_-]/g, "") ?? null;
-    if (fromQuery === accessKey) {
-      const res = NextResponse.next({ request });
-      res.cookies.set("kibito_access", accessKey, {
-        httpOnly: true, secure: true, sameSite: "lax", path: "/", maxAge: 60 * 60 * 24 * 90,
-      });
-      return res;
+  const passwordGate = Boolean(accessKey && process.env.ACCESS_PASSWORD);
+  if (passwordGate) {
+    if (request.cookies.get("kibito_pass")?.value === accessKey) {
+      return NextResponse.next({ request });
     }
-    if (request.cookies.get("kibito_access")?.value === accessKey) {
+    const path = request.nextUrl.pathname;
+    if (path.startsWith("/acceso") || path.startsWith("/api/acceso")) {
       return NextResponse.next({ request });
     }
   }
@@ -67,7 +63,7 @@ export async function middleware(request: NextRequest) {
   }
 
   if (!user && !isPublicPath) {
-    const loginUrl = new URL("/login", request.url);
+    const loginUrl = new URL(passwordGate ? "/acceso" : "/login", request.url);
     return NextResponse.redirect(loginUrl);
   }
 
