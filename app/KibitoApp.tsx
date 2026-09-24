@@ -262,8 +262,12 @@ export default function KibitoApp() {
     }
 
     let currentPaneId = "welcome";
-    function selectPane(paneId: string) {
+    function selectPane(paneId: string, addToHistory = true) {
       currentPaneId = paneId;
+      // Cada sección tiene su #hash para que el botón "atrás" del navegador funcione.
+      if (addToHistory && location.hash.slice(1) !== paneId) {
+        history.pushState(null, "", "#" + paneId);
+      }
       setActiveNav(paneId);
       if (paneId === "chat") {
         chatViewRef.current!.classList.add("active");
@@ -1463,7 +1467,7 @@ export default function KibitoApp() {
       document.documentElement.lang = lang;
       renderSidebar();
       applyChatStaticText();
-      selectPane(currentPaneId);
+      selectPane(currentPaneId, false);
     }
     ensureLangSwitcher();
     let initialLang: Lang = "es";
@@ -1478,8 +1482,16 @@ export default function KibitoApp() {
     document.documentElement.lang = initialLang;
     applyChatStaticText();
 
-    // Inicializar en la página de bienvenida (Welcome Page)
-    selectPane("welcome");
+    // Arrancar en la sección del #hash (link directo o recarga) o, si no hay, en la bienvenida.
+    function paneFromHash() {
+      const id = decodeURIComponent(location.hash.slice(1));
+      return id === "chat" || RENDERERS[id] ? id : "welcome";
+    }
+    const initialPane = paneFromHash();
+    history.replaceState(null, "", "#" + initialPane);
+    selectPane(initialPane, false);
+    const popstateHandler = () => selectPane(paneFromHash(), false);
+    window.addEventListener("popstate", popstateHandler);
 
     // ---------- Kibito chat ----------
     let chatHistory: any[] = [];
@@ -1578,6 +1590,7 @@ export default function KibitoApp() {
     });
 
     return () => {
+      window.removeEventListener("popstate", popstateHandler);
       form.removeEventListener("submit", submitHandler);
       chipHandlers.forEach(([chip, handler]) => chip.removeEventListener("click", handler));
     };
