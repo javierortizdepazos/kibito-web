@@ -49,7 +49,7 @@ Cómo trabajar:
 - Sé breve, directo y cercano. Responde en el idioma en que te escriba el founder.`;
 
 async function runTool(sb: any, name: string, input: any) {
-  if (name === "search_contacts") return searchContacts(sb, input.table, input.filters || {});
+  if (name === "search_contacts") return searchContacts(sb, input.table, input.filters || {}, input.query || "");
   if (name === "search_knowledge") return searchKnowledge(sb, input.query_text || "");
   if (name === "request_intro") return requestIntro(sb, input);
   if (name === "flag_unanswered") return { ok: true };

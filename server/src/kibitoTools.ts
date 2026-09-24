@@ -15,51 +15,85 @@ const SEARCHABLE_TABLES: Record<string, { textCols: string[] }> = {
   recruiters: { textCols: ["name", "company", "type"] },
   press_media: { textCols: ["company", "type", "contact_name"] },
   advisors: { textCols: ["name", "company"] },
-  restaurants: { textCols: ["name", "city", "cuisine", "formality", "price_range"] },
+  restaurants: { textCols: ["name", "city", "cuisine", "formality", "price_range", "recommendation"] },
   events: { textCols: ["name", "location"] },
   perks: { textCols: ["name", "description"] },
   documents: { textCols: ["title", "category", "related_source_page"] },
 };
 
+// Minúsculas y sin tildes, para que "Maria" encuentre "María".
+function normalize(v: unknown): string {
+  return String(v ?? "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase();
+}
+
+// Todas las palabras de `needle` tienen que aparecer en `haystack`.
+function matchesAllWords(haystack: string, needle: string): boolean {
+  const words = normalize(needle).split(/\s+/).filter(Boolean);
+  return words.every((w) => haystack.includes(w));
+}
+
 export async function searchContacts(
   sb: SupabaseClient,
   table: string,
   filters: Record<string, string> = {},
-  limit = 12
+  query = "",
+  limit = 25
 ) {
   const cfg = SEARCHABLE_TABLES[table];
   if (!cfg) return { error: `Tabla no permitida: ${table}` };
 
-  let query = sb.from(table).select("*").limit(limit);
-  for (const [col, value] of Object.entries(filters || {})) {
-    if (cfg.textCols.includes(col)) {
-      query = query.ilike(col, `%${value}%`);
-    } else {
-      query = query.eq(col, value);
-    }
-  }
-
-  const { data, error } = await query;
+  // Las tablas son pequeñas (cientos de filas): las traemos enteras y filtramos aquí,
+  // sin distinguir tildes ni mayúsculas.
+  const { data, error } = await sb.from(table).select("*").limit(1000);
   if (error) return { error: error.message };
 
-  let rows = data || [];
+  let rows: any[] = data || [];
+  const columns = new Set(rows.length ? Object.keys(rows[0]) : []);
+  const rowText = (r: any) => normalize(Object.values(r).join(" "));
+
+  // Un filtro sobre una columna que no existe no rompe la búsqueda: su valor se busca en toda la fila.
+  const keywords: string[] = query ? [query] : [];
+  for (const [col, value] of Object.entries(filters || {})) {
+    if (value === undefined || value === null || value === "") continue;
+    if (columns.has(col)) {
+      rows = rows.filter((r) => matchesAllWords(normalize(r[col]), String(value)));
+    } else {
+      keywords.push(String(value));
+    }
+  }
+  for (const kw of keywords) {
+    rows = rows.filter((r) => matchesAllWords(rowText(r), kw));
+  }
+
+  const total = rows.length;
+  rows = rows.slice(0, limit);
   if (table === "recruiters") {
     rows = rows.map((r: any) => (r.contact_visibility === "request_only" ? { ...r, email: null, _note: "Contacto disponible solo bajo petición de intro." } : r));
   }
-  return { table, count: rows.length, results: rows };
+  return { table, count: total, results: rows };
 }
 
 export async function searchKnowledge(sb: SupabaseClient, queryText: string, limit = 5) {
-  // Fallback de texto plano mientras no haya embeddings cargados en knowledge_chunks.
-  // En cuanto existan, sustituir por una llamada RPC a una función de Postgres
-  // que haga <-> (distancia coseno) con pgvector.
-  const { data, error } = await sb
-    .from("knowledge_chunks")
-    .select("id, source_page, section, content")
-    .or(`content.ilike.%${queryText}%,section.ilike.%${queryText}%`)
-    .limit(limit);
+  // Fallback de texto mientras no haya embeddings cargados en knowledge_chunks:
+  // puntúa cada chunk por cuántas palabras de la pregunta contiene.
+  const { data, error } = await sb.from("knowledge_chunks").select("id, source_page, section, content");
   if (error) return { error: error.message };
-  return { mode: "text_fallback", results: data || [] };
+  const words = normalize(queryText)
+    .split(/[^a-z0-9]+/)
+    .filter((w) => w.length > 3);
+  const scored = (data || [])
+    .map((c: any) => {
+      const text = normalize(`${c.source_page} ${c.section} ${c.content}`);
+      return { chunk: c, score: words.filter((w) => text.includes(w)).length };
+    })
+    .filter((x) => x.score > 0)
+    .sort((a, b) => b.score - a.score)
+    .slice(0, limit)
+    .map((x) => x.chunk);
+  return { mode: "text_fallback", results: scored };
 }
 
 export async function requestIntro(
@@ -87,15 +121,22 @@ export const TOOL_DEFINITIONS = [
     description:
       "Busca contactos o recursos estructurados de Kibo Ventures: equipo, alumni, portfolio founders, fondos VC, " +
       "venture debt, financiación pública, abogados, recruiters, prensa, advisors, restaurantes, eventos, perks o " +
-      "documentos/plantillas. Úsala para preguntas con filtros claros, p.ej. 'fondos VC en USA' o 'la plantilla de board deck'.",
+      "documentos/plantillas. La búsqueda ignora tildes y mayúsculas. Columnas útiles por tabla: " +
+      Object.entries(SEARCHABLE_TABLES)
+        .map(([t, c]) => `${t}(${c.textCols.join(", ")})`)
+        .join("; ") +
+      ". Restaurantes: formality vale 'Formal', 'Business Casual' o 'Casual'. " +
+      "Para personas, busca por apellido si no encuentras el nombre completo. Si no hay resultados, prueba con " +
+      "menos filtros o con `query` antes de decir que no existe.",
     input_schema: {
       type: "object",
       properties: {
         table: { type: "string", enum: Object.keys(SEARCHABLE_TABLES), description: "Qué tabla consultar." },
         filters: {
           type: "object",
-          description: "Pares columna->valor a filtrar. Columnas de texto admiten coincidencia parcial; el resto exige valor exacto.",
+          description: "Pares columna->valor a filtrar (coincidencia parcial). Usa solo columnas de la tabla elegida.",
         },
+        query: { type: "string", description: "Palabras clave a buscar en cualquier columna de la tabla." },
       },
       required: ["table"],
     },
