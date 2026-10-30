@@ -1,13 +1,13 @@
 import "dotenv/config";
 import express from "express";
 import cors from "cors";
-import Anthropic from "@anthropic-ai/sdk";
+import OpenAI from "openai";
 import { getSupabaseServerClient } from "./supabase";
-import { TOOL_DEFINITIONS, searchContacts, searchKnowledge, requestIntro } from "./kibitoTools";
+import { OPENAI_TOOLS, searchContacts, searchKnowledge, requestIntro } from "./kibitoTools";
 
 const app = express();
 const PORT = process.env.PORT || 8080;
-const MODEL = "claude-haiku-4-5-20251001";
+const MODEL = "gpt-5-nano-2025-08-07";
 const MAX_MESSAGE_CHARS = 1000;
 const MAX_HISTORY_MESSAGES = 20;
 
@@ -53,13 +53,13 @@ Cómo trabajar:
 
 // El historial llega del navegador: solo se aceptan mensajes de usuario y respuestas de
 // texto del asistente (nada de "system" ni resultados de tools inventados).
-function sanitizeHistory(history: unknown): Anthropic.MessageParam[] {
+function sanitizeHistory(history: unknown): OpenAI.Chat.ChatCompletionMessageParam[] {
   if (!Array.isArray(history)) return [];
-  const clean: Anthropic.MessageParam[] = [];
+  const clean: OpenAI.Chat.ChatCompletionMessageParam[] = [];
   for (const m of history) {
     if (!m || typeof m.content !== "string" || !m.content.trim()) continue;
     if (m.role === "user") clean.push({ role: "user", content: m.content.slice(0, MAX_MESSAGE_CHARS) });
-    else if (m.role === "assistant") clean.push({ role: "assistant", content: m.content });
+    else if (m.role === "assistant" && !m.tool_calls) clean.push({ role: "assistant", content: m.content });
   }
   return clean.slice(-MAX_HISTORY_MESSAGES);
 }
@@ -86,52 +86,54 @@ app.post("/api/kibito", async (req, res) => {
       return res.json({ reply: `El mensaje es demasiado largo (máximo ${MAX_MESSAGE_CHARS} caracteres).` });
     }
 
-    const apiKey = process.env.ANTHROPIC_API_KEY;
+    const apiKey = process.env.OPENAI_API_KEY;
     if (!apiKey) {
-      return res.status(200).json({ reply: "El backend no tiene configurada ANTHROPIC_API_KEY todavía." });
+      return res.status(200).json({ reply: "El backend no tiene configurada OPENAI_API_KEY todavía." });
     }
 
-    const anthropic = new Anthropic({ apiKey });
+    const openai = new OpenAI({ apiKey });
     const sb = getSupabaseServerClient();
 
-    let messages: Anthropic.MessageParam[] = [...sanitizeHistory(history), { role: "user", content: message }];
+    let messages: OpenAI.Chat.ChatCompletionMessageParam[] = [...sanitizeHistory(history), { role: "user", content: message }];
     let escalatedQuestion: string | null = null;
 
     // Bucle de tool-use: seguimos llamando al modelo y ejecutando tools
     // hasta que responda con texto final.
     for (let turn = 0; turn < 6; turn++) {
-      const response = await anthropic.messages.create({
+      const response = await openai.chat.completions.create({
         model: MODEL,
-        max_tokens: 1024,
-        system: SYSTEM_PROMPT,
-        tools: TOOL_DEFINITIONS as Anthropic.Tool[],
-        messages,
+        messages: [{ role: "system", content: SYSTEM_PROMPT }, ...messages],
+        tools: OPENAI_TOOLS as any,
+        max_completion_tokens: 4000,
+        reasoning_effort: "low",
       });
 
-      if (response.stop_reason !== "tool_use") {
-        const text = response.content
-          .filter((b): b is Anthropic.TextBlock => b.type === "text")
-          .map((b) => b.text)
-          .join("");
+      const choice = response.choices[0];
+      const msg = choice.message;
+
+      if (!msg.tool_calls || msg.tool_calls.length === 0) {
         return res.json({
-          reply: text,
-          history: [...messages, { role: "assistant", content: text }],
+          reply: msg.content || "",
+          history: [...messages, msg],
           ...(escalatedQuestion ? { escalated: true, question: escalatedQuestion } : {}),
         });
       }
 
-      messages = [...messages, { role: "assistant", content: response.content }];
-      const toolResults: Anthropic.ToolResultBlockParam[] = [];
-      for (const block of response.content) {
-        if (block.type !== "tool_use") continue;
-        const input: any = block.input;
-        if (block.name === "flag_unanswered" && input?.question) {
-          escalatedQuestion = input.question;
+      messages = [...messages, msg];
+      for (const call of msg.tool_calls) {
+        if (call.type !== "function") continue;
+        let args: any = {};
+        try {
+          args = JSON.parse(call.function.arguments || "{}");
+        } catch {
+          args = {};
         }
-        const output = await runTool(sb, block.name, input);
-        toolResults.push({ type: "tool_result", tool_use_id: block.id, content: JSON.stringify(output) });
+        if (call.function.name === "flag_unanswered" && args.question) {
+          escalatedQuestion = args.question;
+        }
+        const output = await runTool(sb, call.function.name, args);
+        messages.push({ role: "tool", tool_call_id: call.id, content: JSON.stringify(output) });
       }
-      messages = [...messages, { role: "user", content: toolResults }];
     }
 
     return res.json({ reply: "No he podido terminar de responder (demasiadas herramientas encadenadas). Intenta reformular tu pregunta." });
