@@ -323,9 +323,10 @@ a.ai-item-title:hover { color:var(--accent); }
   .page { padding:26px 16px 60px; }
 }
 
-/* Chat */
-#chat-view .page { max-width:720px; display:flex; flex-direction:column; flex:1; padding-bottom:0; }
-#chat-scroll { flex:1; overflow-y:auto; display:flex; flex-direction:column; gap:14px; padding-bottom:20px; }
+/* Chat — solo #chat-scroll hace scroll; la barra de abajo queda fija */
+#chat-view { overflow-y:hidden; }
+#chat-view .page { max-width:720px; display:flex; flex-direction:column; flex:1; min-height:0; padding-bottom:0; }
+#chat-scroll { flex:1; min-height:0; overflow-y:auto; display:flex; flex-direction:column; gap:14px; padding-bottom:20px; }
 .chat-welcome { text-align:center; padding:48px 0 10px; }
 .chat-welcome .page-icon-badge { margin:0 auto 14px; width:60px; height:60px; font-size:30px; border-radius:18px; }
 .chat-welcome h1 { font-size:25px; }
