@@ -1553,10 +1553,12 @@ export default function KibitoApp() {
       documents: "Documentos",
     };
     const CARD_HIDDEN_FIELDS = new Set([
-      "id", "name", "company", "email", "phone", "address", "book_url", "url", "web", "website",
+      "id", "name", "title", "company", "email", "phone", "address", "book_url", "url", "web", "website",
       "linkedin_url", "twitter", "contact", "contact_name", "_note", "contact_visibility",
+      "file_url", "thumbnail_url", "related_source_page", "created_at",
     ]);
     function linkField(row: any): { url: string; label: string } | null {
+      if (row.file_url) return { url: row.file_url, label: "Ver / Descargar" };
       if (row.book_url) return { url: row.book_url, label: t("rest.bookTable") || "Reservar" };
       if (row.website) return { url: row.website, label: "Web" };
       if (row.web) return { url: row.web, label: "Web" };
@@ -1572,7 +1574,7 @@ export default function KibitoApp() {
             const cards = g.items
               .slice(0, 12)
               .map((row: any) => {
-                const title = esc(row.name || row.company || "—");
+                const title = esc(row.name || row.title || row.company || "—");
                 const sub = Object.entries(row)
                   .filter(([k, v]) => !CARD_HIDDEN_FIELDS.has(k) && v && typeof v === "string")
                   .slice(0, 3)

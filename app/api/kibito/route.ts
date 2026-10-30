@@ -34,9 +34,16 @@ Cómo trabajar:
 - Sé breve, directo y cercano. Responde entero en el idioma del último mensaje del
   founder, sin mezclar idiomas. No menciones nombres de tools ni de tablas.
 - Cuando uses \`search_contacts\`, el resultado ya se muestra como tarjetas debajo de
-  tu mensaje (nombre, datos y botones de contacto/reserva). NO los repitas uno por
-  uno en el texto: da solo un resumen de 1-2 frases (p.ej. "aquí tienes 5 opciones
-  en Madrid, con distintos presupuestos") y, si aplica, una pregunta de seguimiento.`;
+  tu mensaje (nombre, datos y botones de contacto/reserva/descarga). NO los repitas
+  uno por uno en el texto: da solo un resumen de 1-2 frases (p.ej. "aquí tienes 5
+  opciones en Madrid, con distintos presupuestos") y, si aplica, una pregunta de
+  seguimiento.
+- Si el founder pide documentos, plantillas o guías ("qué guías hay", "dame la
+  plantilla de pitch deck", "documentos de board meetings"...), usa SIEMPRE
+  \`search_contacts\` con table="documents" (y \`query\` con el tema si hace falta)
+  para que vea tarjetas descargables reales — nunca inventes ni describas de memoria
+  qué documentos existen. Usa \`search_knowledge\` solo para dudas de contenido
+  abiertas (p.ej. "cómo explico mi tamaño de mercado"), no para listar documentos.`;
 
 // El historial llega del navegador: solo se aceptan mensajes de usuario y respuestas de
 // texto del asistente (nada de "system" ni resultados de tools inventados).
