@@ -221,11 +221,8 @@ export default function KibitoApp() {
         `<div class="footer-note">${BRAND_ARROW_STACK}${esc(t("nav.footer"))}<br><button id="logout-btn" style="margin-top:8px;background:none;border:1px solid rgba(255,255,255,0.2);color:rgba(255,255,255,0.7);border-radius:6px;padding:4px 10px;font-size:11px;cursor:pointer;font-family:inherit;">${esc(t("nav.logout"))}</button></div>`;
 
       document.getElementById("logout-btn")?.addEventListener("click", async () => {
-        document.cookie = "kibo_dev_bypass=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT";
         try {
-          const { getSupabaseBrowserClient } = await import("@/lib/supabaseClient");
-          const supabase = getSupabaseBrowserClient();
-          await supabase.auth.signOut();
+          await fetch("/api/logout", { method: "POST" });
         } catch (e) {
           // ignore
         }
