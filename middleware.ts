@@ -1,6 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
+import { SITE_COOKIE, SITE_PURPOSE, isValidSession } from "@/lib/authToken";
 
-export function middleware(request: NextRequest) {
+export async function middleware(request: NextRequest) {
   const isPublicPath =
     request.nextUrl.pathname.startsWith("/login") ||
     request.nextUrl.pathname.startsWith("/api/login") ||
@@ -11,17 +12,18 @@ export function middleware(request: NextRequest) {
     return NextResponse.next();
   }
 
-  const expected = process.env.ACCESS_PASSWORD;
-  const hasValidCookie = expected && request.cookies.get("kibito_pw")?.value === expected;
-
-  if (!hasValidCookie) {
-    const loginUrl = new URL("/login", request.url);
-    return NextResponse.redirect(loginUrl);
+  const ok = await isValidSession(request.cookies.get(SITE_COOKIE)?.value, process.env.ACCESS_PASSWORD, SITE_PURPOSE);
+  if (!ok) {
+    if (request.nextUrl.pathname.startsWith("/api/")) {
+      return NextResponse.json({ error: "No autorizado" }, { status: 401 });
+    }
+    return NextResponse.redirect(new URL("/login", request.url));
   }
 
   return NextResponse.next();
 }
 
 export const config = {
-  matcher: ["/((?!_next/static|_next/image|favicon.ico).*)"],
+  // /_vercel/* son los scripts de Analytics que sirve Vercel: no deben redirigir a /login.
+  matcher: ["/((?!_next/static|_next/image|_vercel|favicon.ico).*)"],
 };

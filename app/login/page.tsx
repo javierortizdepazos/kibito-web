@@ -1,11 +1,26 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { KiboLogo, KiboArrow } from "@/components/KiboBrand";
+import { t, setCurrentLang, type Lang } from "@/lib/i18n";
 
 export default function LoginPage() {
   const [password, setPassword] = useState("");
   const [status, setStatus] = useState<"idle" | "sending" | "error">("idle");
+  const [, setLang] = useState<Lang>("es");
+
+  useEffect(() => {
+    let lang: Lang = navigator.language?.toLowerCase().startsWith("es") ? "es" : "en";
+    try {
+      const saved = localStorage.getItem("kibo_lang");
+      if (saved === "es" || saved === "en") lang = saved;
+    } catch {
+      // ignore
+    }
+    setCurrentLang(lang);
+    document.documentElement.lang = lang;
+    setLang(lang);
+  }, []);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -76,7 +91,7 @@ export default function LoginPage() {
                 letterSpacing: "-0.015em",
               }}
             >
-              Portal de Founders
+              {t("login.title")}
             </h1>
             <p
               style={{
@@ -86,17 +101,21 @@ export default function LoginPage() {
                 margin: 0,
               }}
             >
-              Bienvenido al espacio de la comunidad de portfolio founders de <b>Kibo Ventures</b>. Introduce la
-              contraseña de acceso para entrar.
+              {t("login.lead1")} <b>Kibo Ventures</b>. {t("login.lead2")}
             </p>
           </div>
         </div>
 
         <form onSubmit={handleSubmit} style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-          <label style={{ fontSize: 12.5, fontWeight: 600, color: "var(--text, #000030)" }}>Contraseña</label>
+          <label htmlFor="login-password" style={{ fontSize: 12.5, fontWeight: 600, color: "var(--text, #000030)" }}>{t("login.password")}</label>
           <input
+            id="login-password"
             type="password"
+            autoComplete="current-password"
+            autoFocus
             required
+            aria-invalid={status === "error"}
+            aria-describedby={status === "error" ? "login-error" : undefined}
             placeholder="••••••••"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
@@ -140,10 +159,12 @@ export default function LoginPage() {
               if (status !== "sending") e.currentTarget.style.background = "var(--accent, #EF3A47)";
             }}
           >
-            {status === "sending" ? "Entrando…" : "Entrar"}
+            {status === "sending" ? t("login.submitting") : t("login.submit")}
           </button>
           {status === "error" && (
             <div
+              id="login-error"
+              role="alert"
               style={{
                 color: "#D92E3B",
                 fontSize: 12.5,
@@ -153,7 +174,7 @@ export default function LoginPage() {
                 background: "rgba(217, 46, 59, 0.08)",
               }}
             >
-              Contraseña incorrecta.
+              {t("login.error")}
             </div>
           )}
         </form>

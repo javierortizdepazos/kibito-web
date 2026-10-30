@@ -95,7 +95,11 @@ function extractCardGroups(output: any): { table: string; items: any[] }[] {
 
 export async function POST(req: NextRequest) {
   try {
-    const { message, history } = await req.json();
+    const { message, history, context } = await req.json();
+    const pageContext = typeof context === "string" ? context.replace(/[\r\n]+/g, " ").trim().slice(0, 200) : "";
+    const systemPrompt = pageContext
+      ? `${SYSTEM_PROMPT}\n\nContexto: el founder ha abierto el chat desde la sección «${pageContext}» del portal. Úsalo para interpretar preguntas ambiguas y para elegir qué buscar primero.`
+      : SYSTEM_PROMPT;
     if (!message || typeof message !== "string") {
       return NextResponse.json({ error: "Falta 'message'." }, { status: 400 });
     }
@@ -120,7 +124,7 @@ export async function POST(req: NextRequest) {
     for (let turn = 0; turn < 6; turn++) {
       const response = await openai.chat.completions.create({
         model: MODEL,
-        messages: [{ role: "system", content: SYSTEM_PROMPT }, ...messages],
+        messages: [{ role: "system", content: systemPrompt }, ...messages],
         tools: OPENAI_TOOLS as any,
         max_completion_tokens: 4000,
         reasoning_effort: "medium",

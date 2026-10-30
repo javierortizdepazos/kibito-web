@@ -15,7 +15,8 @@ export async function notifySlackIntroRequest(request: {
     `*Founder:* ${request.founder_name} (${request.startup_name || "startup no indicada"})\n` +
     `*Contacto pedido:* ${request.contact_requested}\n` +
     `*Motivo:* ${request.reason}\n` +
-    `*Estado:* pendiente (id ${request.id})`;
+    `*Estado:* pendiente (id ${request.id})\n` +
+    `<${process.env.SITE_URL || "https://kibito-web.vercel.app"}/admin|Abrir el panel de intros>`;
 
   try {
     await fetch(webhookUrl, {

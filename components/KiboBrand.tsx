@@ -14,7 +14,7 @@ export function KiboLogo({
   return (
     <svg
       width={width}
-      height={height || "auto"}
+      height={height || undefined}
       viewBox="0 0 264 157"
       fill="none"
       xmlns="http://www.w3.org/2000/svg"

@@ -1,12 +1,35 @@
 "use client";
 
 import { useEffect, useRef } from "react";
-import DATA from "@/lib/data.json";
+import { track } from "@vercel/analytics";
+import STATIC_DATA from "@/lib/data.json";
 import { iconSvg } from "@/lib/icons";
 import { t, loc, getLang, setCurrentLang, type Lang } from "@/lib/i18n";
+import { esc, mdLite } from "@/lib/ui/html";
+import { initChat } from "@/lib/ui/chat";
+import { initCommandPalette, type PaletteItem } from "@/lib/ui/commandPalette";
+import { checklistHtml, hideChecklist, markVisited } from "@/lib/ui/welcomeChecklist";
+import { getMyIntros, rememberIntro } from "@/lib/myIntros";
 
 // El backend vive en las propias rutas /api de esta app Next.js (mismo origen).
 const API_BASE = "";
+
+// Contenido del portal: lo editado desde /admin (tabla site_content) pisa a lib/data.json.
+let DATA: any = STATIC_DATA;
+async function loadContent() {
+  const ctrl = new AbortController();
+  const timer = setTimeout(() => ctrl.abort(), 3000);
+  try {
+    const res = await fetch("/api/content", { signal: ctrl.signal, cache: "no-store" });
+    if (res.ok) DATA = { ...STATIC_DATA, ...(await res.json()) };
+  } catch {
+    // sin conexión con Supabase: se queda el contenido de data.json
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+const KIBO_CALENDAR_ID = "c_e0c994fcb4087fa979419ba30b70248ef156d6c85f8bebcc054519c4fda6d9c4@group.calendar.google.com";
 
 export default function KibitoApp() {
   const sidebarRef = useRef<HTMLElement>(null);
@@ -17,24 +40,56 @@ export default function KibitoApp() {
   const chatWelcomeRef = useRef<HTMLDivElement>(null);
   const chatInputRef = useRef<HTMLInputElement>(null);
   const chatSendRef = useRef<HTMLButtonElement>(null);
+  const chatFormRef = useRef<HTMLFormElement>(null);
+  const chatContextRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
+    let cancelled = false;
+    let cleanup: (() => void) | undefined;
+    loadContent().then(() => {
+      if (!cancelled) cleanup = init();
+    });
+    return () => {
+      cancelled = true;
+      cleanup?.();
+    };
+  }, []);
+
+  function init() {
+    let chat: ReturnType<typeof initChat> | null = null;
+    let openPalette: () => void = () => {};
     // ---------- helpers ----------
-    function esc(s: any) {
-      if (s === null || s === undefined) return "";
-      return String(s).replace(
-        /[&<>"']/g,
-        (c) =>
-          (
-            { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" } as Record<string, string>
-          )[c]
-      );
+    function safeTrack(name: string, props?: Record<string, string>) {
+      try {
+        track(name, props);
+      } catch {
+        // analytics nunca debe romper la navegación
+      }
     }
-    function mdLite(s: any) {
-      let t = esc(s);
-      t = t.replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>");
-      t = t.replace(/\[([^\]]+)\]\((https?:\/\/[^)]+)\)/g, '<a href="$2" target="_blank" rel="noopener">$1</a>');
-      return t;
+    // Las vistas se pintan como HTML en texto; esto completa lo que suele faltar para
+    // teclado y lectores de pantalla en cada render.
+    function enhanceA11y(root: HTMLElement) {
+      root.querySelectorAll<HTMLInputElement>("input[placeholder]:not([aria-label])").forEach((i) => i.setAttribute("aria-label", i.placeholder));
+      root.querySelectorAll<HTMLSelectElement>("select:not([aria-label])").forEach((s) => {
+        const first = s.options[0]?.textContent;
+        if (first) s.setAttribute("aria-label", first);
+      });
+      root.querySelectorAll<HTMLImageElement>("img:not([alt])").forEach((img) => img.setAttribute("alt", ""));
+      root.querySelectorAll<HTMLElement>("[data-pane]:not(button):not(a), .rest-card").forEach((el) => {
+        if (el.getAttribute("role") === "button") return;
+        el.setAttribute("role", "button");
+        el.tabIndex = 0;
+        el.addEventListener("keydown", (e) => {
+          if (e.key === "Enter" || e.key === " ") {
+            e.preventDefault();
+            el.click();
+          }
+        });
+      });
+    }
+    function focusModal(modal: HTMLElement) {
+      enhanceA11y(modal);
+      (modal.querySelector(".modal-close") as HTMLElement | null)?.focus();
     }
     function fmtMoney(n: number | null | undefined) {
       if (n === null || n === undefined) return null;
@@ -95,7 +150,7 @@ export default function KibitoApp() {
       doc: { color: "var(--accent-2)", icon: "file-text" },
     };
     function docCard(doc: any, caption?: string) {
-      const ext = (doc.file_url.split(".").pop() || "").toLowerCase();
+      const ext = (String(doc.file_url || "").split(".").pop() || "").toLowerCase();
       const style = EXT_STYLE[ext] || { color: "var(--text-lighter)", icon: "file-text" };
       const visual = doc.thumbnail_url
         ? `<img class="doc-thumb" src="${esc(doc.thumbnail_url)}" alt="" loading="lazy">`
@@ -143,6 +198,7 @@ export default function KibitoApp() {
           { id: "network-press", labelKey: "nav.network_press" },
           { id: "network-adv", labelKey: "nav.network_adv" },
           { id: "network-other", labelKey: "nav.network_other" },
+          { id: "network-mine", labelKey: "nav.network_mine" },
         ],
       },
       {
@@ -203,17 +259,20 @@ export default function KibitoApp() {
     const BRAND_ARROW_STACK = `<div class="brand-arrows">${["#EF3A47", "#F9C521", "#1FC974", "#4594F4"].map((c) => kiboArrow(c)).join("")}</div>`;
 
     function renderSidebar() {
+      const isMac = /Mac|iPhone|iPad/.test(navigator.platform || navigator.userAgent);
+      sidebarEl.setAttribute("aria-label", t("a11y.mainNav"));
       sidebarEl.innerHTML =
         '<div class="brand"><span class="mark">' +
         KIBO_ARROW_SVG +
         '</span><span class="label" style="font-weight:700;letter-spacing:0.04em;">KIBO VENTURES</span></div>' +
+        `<button class="sidebar-search" id="open-search" aria-label="${esc(t("search.label"))}" aria-keyshortcuts="${isMac ? "Meta+K" : "Control+K"}"><span class="ic">${iconSvg("search", 15)}</span><span class="label">${esc(t("search.button"))}</span><kbd class="label">${isMac ? "⌘K" : "Ctrl K"}</kbd></button>` +
         NAV.map((item) => {
           if (item.divider) return '<div class="sidebar-divider"></div>';
           const hasChildren = item.children && item.children.length;
           return `<div>
             <div class="navrow">
               <button class="navitem" data-pane="${item.id}"><span class="ic">${iconSvg(item.icon, 16, "currentColor")}</span><span class="label">${esc(navLabel(item))}</span></button>
-              ${hasChildren ? `<button class="navchevron" data-toggle-parent="${item.id}">▶</button>` : ""}
+              ${hasChildren ? `<button class="navchevron" data-toggle-parent="${item.id}" aria-expanded="false" aria-controls="children-${item.id}" aria-label="${esc(t("a11y.toggleSection", { name: navLabel(item) }))}">▶</button>` : ""}
             </div>
             ${hasChildren ? `<div class="navchildren" id="children-${item.id}">${item.children.map((c: any) => `<button class="navchild" data-pane="${c.id}">${esc(navLabel(c))}</button>`).join("")}</div>` : ""}
           </div>`;
@@ -229,6 +288,7 @@ export default function KibitoApp() {
         window.location.href = "/login";
       });
 
+      document.getElementById("open-search")?.addEventListener("click", () => openPalette());
       sidebarEl.querySelectorAll("[data-pane]").forEach((btn) =>
         btn.addEventListener("click", () => selectPane((btn as HTMLElement).dataset.pane!))
       );
@@ -236,24 +296,34 @@ export default function KibitoApp() {
         btn.addEventListener("click", (e) => {
           e.stopPropagation();
           const id = (btn as HTMLElement).dataset.toggleParent!;
-          document.getElementById("children-" + id)!.classList.toggle("open");
-          (btn as HTMLElement).classList.toggle("open");
+          const open = document.getElementById("children-" + id)!.classList.toggle("open");
+          (btn as HTMLElement).classList.toggle("open", open);
+          btn.setAttribute("aria-expanded", String(open));
         })
       );
     }
     renderSidebar();
 
     function setActiveNav(paneId: string) {
-      sidebarEl.querySelectorAll(".navitem, .navchild").forEach((b) => b.classList.remove("active"));
+      sidebarEl.querySelectorAll(".navitem, .navchild").forEach((b) => {
+        b.classList.remove("active");
+        b.removeAttribute("aria-current");
+      });
       const direct =
         sidebarEl.querySelector(`.navitem[data-pane="${paneId}"]`) || sidebarEl.querySelector(`.navchild[data-pane="${paneId}"]`);
-      if (direct) direct.classList.add("active");
+      if (direct) {
+        direct.classList.add("active");
+        direct.setAttribute("aria-current", "page");
+      }
       const parent = paneParent(paneId);
       if (parent) {
         const childrenEl = document.getElementById("children-" + parent.id);
         if (childrenEl) childrenEl.classList.add("open");
         const chev = sidebarEl.querySelector(`[data-toggle-parent="${parent.id}"]`);
-        if (chev) chev.classList.add("open");
+        if (chev) {
+          chev.classList.add("open");
+          chev.setAttribute("aria-expanded", "true");
+        }
       }
     }
 
@@ -265,6 +335,8 @@ export default function KibitoApp() {
         history.pushState(null, "", "#" + paneId);
       }
       setActiveNav(paneId);
+      if (paneId !== "chat") markVisited(paneId);
+      safeTrack("pane_view", { pane: paneId });
       if (paneId === "chat") {
         chatViewRef.current!.classList.add("active");
         contentViewRef.current!.classList.remove("active");
@@ -291,11 +363,18 @@ export default function KibitoApp() {
         icon,
         22,
         c
-      )}</div><div><h1>${esc(title)}</h1>${subtitle ? `<p class="subtitle">${subtitle}</p>` : ""}</div></div>`;
+      )}</div><div class="page-header-text"><h1>${esc(title)}</h1>${subtitle ? `<p class="subtitle">${subtitle}</p>` : ""}</div>
+        <button type="button" class="ask-kibito-btn" data-ask="${esc(title)}" aria-label="${esc(t("ask.button"))}: ${esc(title)}">${iconSvg("sparkles", 14)}<span aria-hidden="true">${esc(t("ask.button"))}</span></button></div>`;
     }
     function bindBreadcrumb(container: HTMLElement) {
       container.querySelectorAll(".breadcrumb [data-pane]").forEach((b) => b.addEventListener("click", () => selectPane((b as HTMLElement).dataset.pane!)));
       container.querySelectorAll("[data-goto]").forEach((b) => b.addEventListener("click", (e) => { e.preventDefault(); selectPane((b as HTMLElement).dataset.goto!); }));
+      container.querySelectorAll("[data-ask]").forEach((b) =>
+        b.addEventListener("click", () => {
+          safeTrack("ask_kibito_from_pane", { pane: currentPaneId });
+          askKibito((b as HTMLElement).dataset.ask || null);
+        })
+      );
     }
 
     function overviewRenderer(item: any, icon: string, titleKey: string, subtitleKey: string, countFn: (id: string) => string) {
@@ -305,7 +384,7 @@ export default function KibitoApp() {
           <div class="overview-grid">${item.children
             .map((c: any) => {
               const cc = brandColor(c.id);
-              const ci = c.id === "network-other" ? "message" : "folder";
+              const ci = c.id === "network-other" ? "message" : c.id === "network-mine" ? "clock" : "folder";
               return `<button class="overview-card" data-pane="${c.id}"><div class="oc-icon" style="color:${cc};">${iconSvg(ci, 22)}</div><div class="oc-title">${esc(navLabel(c))}</div><div class="oc-count">${countFn(c.id)}</div></button>`;
             })
             .join("")}</div>`;
@@ -323,7 +402,7 @@ export default function KibitoApp() {
           </div>
 
           <div style="margin: 12px auto 22px; display: flex; justify-content: center;">
-            <svg width="290" height="auto" viewBox="0 0 264 157" fill="none" xmlns="http://www.w3.org/2000/svg" style="max-width: 90%; height: auto;">
+            <svg width="290" viewBox="0 0 264 157" fill="none" xmlns="http://www.w3.org/2000/svg" style="max-width: 90%; height: auto;">
               <path d="M171.087 51.6514L159.451 83.258L147.816 51.6514H136.84L153.487 96.5069H165.073L181.647 51.6514H171.087Z" fill="var(--text, #000030)"/>
               <path d="M218.436 60.9647V51.6514H196.338H193.404H186.144V96.5069H193.404H196.338H218.778V87.1936H196.338V77.1469H211.64V68.298H196.338V60.9647H218.436Z" fill="var(--text, #000030)"/>
               <path d="M253.782 72.8691L235.253 51.6514H226.453V96.5069H236.671V69.0314L253.782 88.7091V96.5069H264V51.6514H253.782V72.8691Z" fill="var(--text, #000030)"/>
@@ -356,6 +435,8 @@ export default function KibitoApp() {
           </div>
 
         </div>
+
+        ${checklistHtml()}
 
         <div style="margin-bottom:16px;">
           <h2 style="font-size:18px;font-weight:700;color:var(--text);margin-bottom:6px;">${t("welcome.resourcesTitle")}</h2>
@@ -421,6 +502,10 @@ export default function KibitoApp() {
       container.querySelectorAll("[data-pane]").forEach((b) =>
         b.addEventListener("click", () => selectPane((b as HTMLElement).dataset.pane!))
       );
+      container.querySelector("#checklist-hide")?.addEventListener("click", () => {
+        hideChecklist();
+        container.querySelector(".checklist")?.remove();
+      });
     }
 
     // ================= MEET KIBO =================
@@ -604,6 +689,7 @@ export default function KibitoApp() {
           });
           const data = await res.json();
           if (!res.ok || data.error) throw new Error(data.error || "Error desconocido");
+          rememberIntro(data.request);
           body.innerHTML = `<div style="text-align:center;padding:16px 0;">${iconSvg(
             "check",
             34,
@@ -611,7 +697,11 @@ export default function KibitoApp() {
           )}<h2 class="modal-title" style="margin-top:12px;">${t("intro.success.title")}</h2><p style="color:var(--text-light);font-size:13.5px;">${t(
             "intro.success.text",
             { contact: esc(contactLabel) }
-          )}</p></div>`;
+          )}</p><button type="button" class="page-link" data-goto-mine style="margin-top:6px;">${esc(t("intro.trackHint"))}</button></div>`;
+          body.querySelector("[data-goto-mine]")?.addEventListener("click", () => {
+            closeIntroModal();
+            selectPane("network-mine");
+          });
         } catch (err) {
           submitBtn.disabled = false;
           submitBtn.innerHTML = `${iconSvg("mail", 15)}${t("intro.submit")}`;
@@ -625,6 +715,7 @@ export default function KibitoApp() {
         }
       });
       modal.classList.add("open");
+      focusModal(modal);
     }
 
     const NETWORK_CONFIG: Record<string, any> = {
@@ -806,13 +897,15 @@ export default function KibitoApp() {
           });
           const data = await res.json();
           if (!res.ok || data.error) throw new Error(data.error || "Error desconocido");
+          rememberIntro(data.request);
           form.parentElement!.innerHTML = `<div style="text-align:center;padding:30px 0;">${iconSvg(
             "check",
             34,
             "var(--accent-green)"
           )}<h2 style="font-family:'Space Grotesk',sans-serif;margin:12px 0 4px;">${t("other.success.title")}</h2><p style="color:var(--text-light);font-size:13.5px;">${t(
             "other.success.text"
-          )}</p></div>`;
+          )}</p><button type="button" class="page-link" data-goto-mine style="margin-top:6px;">${esc(t("intro.trackHint"))}</button></div>`;
+          container.querySelector("[data-goto-mine]")?.addEventListener("click", () => selectPane("network-mine"));
         } catch (err) {
           submitBtn.disabled = false;
           submitBtn.innerHTML = `${iconSvg("mail", 15)}${t("intro.submit")}`;
@@ -827,7 +920,58 @@ export default function KibitoApp() {
       });
     }
 
+    const INTRO_STATUS_COLOR: Record<string, string> = {
+      pending: "#B8860B",
+      approved: "#0F9B53",
+      rejected: "#EF3A47",
+      done: "#4594F4",
+    };
+    function renderMyIntrosPane(container: HTMLElement) {
+      const mine = getMyIntros();
+      container.innerHTML =
+        pageHeader("network-mine", "clock", t("nav.network_mine"), t("mine.subtitle")) +
+        `<div class="callout"><span class="ic" style="color:var(--accent-2);">${iconSvg("info", 20)}</span><div>${esc(t("mine.browserNote"))}</div></div>
+         <div id="mine-body" aria-live="polite">${mine.length ? `<p style="color:var(--text-lighter);">${esc(t("mine.loading"))}</p>` : ""}</div>`;
+      bindBreadcrumb(container);
+      const body = container.querySelector("#mine-body") as HTMLElement;
+      if (!mine.length) {
+        body.innerHTML = `<div class="empty-state">${iconSvg("mail", 28, "var(--text-lighter)")}<p>${esc(t("mine.empty"))}</p>
+          <button type="button" class="modal-book-btn" style="max-width:260px;" data-goto-network>${iconSvg("network", 15)}${esc(t("nav.network"))}</button></div>`;
+        body.querySelector("[data-goto-network]")?.addEventListener("click", () => selectPane("network"));
+        return;
+      }
+      fetch("/api/intro-status", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ tokens: mine.map((m) => m.token) }),
+      })
+        .then((r) => (r.ok ? r.json() : Promise.reject()))
+        .then((data) => {
+          if (currentPaneId !== "network-mine") return;
+          const byToken = new Map((data.intros || []).map((i: any) => [i.public_token, i]));
+          const rows = mine.map((m) => byToken.get(m.token) || { contact_requested: m.contact, created_at: m.created, status: "pending" });
+          const fmt = (iso?: string) => (iso ? new Date(iso).toLocaleDateString(getLang() === "en" ? "en-US" : "es-ES", { day: "numeric", month: "short", year: "numeric" }) : "");
+          body.innerHTML = `<div class="tablewrap"><table class="ntable"><thead><tr><th>${esc(t("mine.th.contact"))}</th><th>${esc(t("mine.th.date"))}</th><th>${esc(t("mine.th.status"))}</th><th>${esc(t("mine.th.note"))}</th></tr></thead><tbody>${rows
+            .map((r: any) => {
+              const c = INTRO_STATUS_COLOR[r.status] || "#000030";
+              return `<tr><td>${esc(r.contact_requested)}</td><td>${esc(fmt(r.created_at))}</td><td><span class="badge" style="background:${c}1f;color:${c}">${esc(t("mine.status." + r.status))}</span></td><td>${esc(r.admin_note || "—")}</td></tr>`;
+            })
+            .join("")}</tbody></table></div>`;
+        })
+        .catch(() => {
+          if (currentPaneId === "network-mine") body.innerHTML = `<p class="intro-error">${esc(t("mine.error"))}</p>`;
+        });
+    }
+
     // ================= GUÍAS =================
+    // Las mismas listas alimentan cada página y su contador en la vista general.
+    const PITCH_DOCS = ["Kibo Pitch Deck Template (PPTX)", "Kibo Pitch Deck Template (PDF)"];
+    const BOARD_DOCS = ["Kibo Board Deck Template (PPTX)", "Kibo Board Deck Template (PDF)", "Creandum Board Deck Template"];
+    const REPORTING_DOCS = {
+      kibo: ["Kibo Excel Reporting Template", "Kibo Mail Reporting Template"],
+      email: ["Belvo Reporting Example", "Innovamat Reporting Example"],
+      kpi: ["Exoticca Reporting Board (Excel)", "TIER Management Accounts (Excel)"],
+    };
     const GUIDE_CONFIG: Record<string, any> = {
       "guides-reporting": {
         icon: "book-open",
@@ -899,7 +1043,7 @@ export default function KibitoApp() {
     }
 
     function renderPitchPane(container: HTMLElement) {
-      const downloads = docsByTitles(["Kibo Pitch Deck Template (PPTX)", "Kibo Pitch Deck Template (PDF)"]);
+      const downloads = docsByTitles(PITCH_DOCS);
       const sectionTitle = (t: string) => `<h3 style="font-family:'Space Grotesk',sans-serif;font-size:15.5px;font-weight:600;margin:26px 0 4px;">${esc(t)}</h3>`;
       const list = (items: string[]) => `<ul class="principle-list" style="margin-bottom:14px;">${items.map((i) => `<li><span class="chk">•</span>${i}</li>`).join("")}</ul>`;
       container.innerHTML =
@@ -916,7 +1060,7 @@ export default function KibitoApp() {
     }
 
     function renderBoardPane(container: HTMLElement) {
-      const downloads = docsByTitles(["Kibo Board Deck Template (PPTX)", "Kibo Board Deck Template (PDF)", "Creandum Board Deck Template"]);
+      const downloads = docsByTitles(BOARD_DOCS);
       const sectionTitle = (t: string) => `<h3 style="font-family:'Space Grotesk',sans-serif;font-size:15.5px;font-weight:600;margin:26px 0 4px;">${esc(t)}</h3>`;
       const list = (items: string[]) => `<ul class="principle-list" style="margin-bottom:14px;">${items.map((i) => `<li><span class="chk">•</span>${i}</li>`).join("")}</ul>`;
       container.innerHTML =
@@ -954,9 +1098,9 @@ export default function KibitoApp() {
       </section>`;
     }
     function renderReportingPane(container: HTMLElement) {
-      const kiboTemplates = docsByTitles(["Kibo Excel Reporting Template", "Kibo Mail Reporting Template"]);
-      const emailExamples = docsByTitles(["Belvo Reporting Example", "Innovamat Reporting Example"]);
-      const kpiExamples = docsByTitles(["Exoticca Reporting Board (Excel)", "TIER Management Accounts (Excel)"]);
+      const kiboTemplates = docsByTitles(REPORTING_DOCS.kibo);
+      const emailExamples = docsByTitles(REPORTING_DOCS.email);
+      const kpiExamples = docsByTitles(REPORTING_DOCS.kpi);
       container.innerHTML =
         pageHeader("guides-reporting", "book-open", t("guides.reporting.title"), "") +
         `<div class="callout"><span class="ic" style="color:var(--accent);">${iconSvg("info", 20)}</span><div>${t("guides.reporting.callout")}</div></div>
@@ -979,7 +1123,8 @@ export default function KibitoApp() {
     }
 
     function vc101List(items: any[]) {
-      return `<div class="vc101-list">${items
+      return `<div class="vc101-list">${(items || [])
+        .filter((d) => d?.file_url)
         .map((d) => {
           const ext = (d.file_url.split(".").pop() || "").toLowerCase();
           const style = EXT_STYLE[ext] || { color: "var(--text-lighter)", icon: "file-text" };
@@ -1086,6 +1231,7 @@ export default function KibitoApp() {
         ${r.book_url ? `<a class="modal-book-btn" href="${esc(r.book_url)}" target="_blank" rel="noopener">${iconSvg("calendar", 15)}${t("rest.bookTable")}</a>` : ""}
       `;
       modal.classList.add("open");
+      focusModal(modal);
     }
     function renderRestaurantCityPane(city: string, container: HTMLElement) {
       const rows0 = (DATA.restaurants as any[]).filter((r) => r.city === city);
@@ -1130,7 +1276,7 @@ export default function KibitoApp() {
 
     // ================= PERKS =================
     function renderPerksPane(container: HTMLElement) {
-      const getproven = (DATA.perks as any[]).find((p) => p.name.includes("GetProven") || p.name.includes("Proven"));
+      const getproven = (DATA.perks as any[]).find((p) => String(p.name || "").includes("Proven"));
       const sectionTitle = (title: string) => `<h3 style="font-family:'Space Grotesk',sans-serif;font-size:15.5px;font-weight:600;margin:26px 0 4px;">${esc(title)}</h3>`;
       const subTitle = (title: string) => `<h4 style="font-size:13.5px;font-weight:700;margin:16px 0 8px;color:var(--text);">${esc(title)}</h4>`;
       container.innerHTML =
@@ -1182,13 +1328,23 @@ export default function KibitoApp() {
     }
 
     // ================= CALENDAR & EVENTS =================
-    const KIBO_CALENDAR_EMBED_SRC =
-      "https://calendar.google.com/calendar/embed?src=c_e0c994fcb4087fa979419ba30b70248ef156d6c85f8bebcc054519c4fda6d9c4%40group.calendar.google.com&ctz=Europe%2FMadrid";
     function renderCalFuturePane(container: HTMLElement) {
+      const calId = encodeURIComponent(KIBO_CALENDAR_ID);
+      const icsPath = `calendar.google.com/calendar/ical/${calId}/public/basic.ics`;
+      // La vista de mes de Google no cabe en un móvil; la de agenda sí.
+      const mobile = window.matchMedia("(max-width: 700px)").matches;
+      const embedSrc = `https://calendar.google.com/calendar/embed?src=${calId}&ctz=Europe%2FMadrid&hl=${getLang()}${mobile ? "&mode=AGENDA" : ""}`;
       container.innerHTML =
-        pageHeader("cal-future", "calendar", t("cal.future.title"), "") +
-        `<iframe src="${KIBO_CALENDAR_EMBED_SRC}" style="border:0;border-radius:var(--radius);box-shadow:var(--shadow-sm);" width="100%" height="650" frameborder="0" scrolling="no"></iframe>`;
+        pageHeader("cal-future", "calendar", t("cal.future.title"), esc(t("cal.future.subtitle"))) +
+        `<div class="cal-actions">
+           <a class="cal-action-btn primary" href="https://calendar.google.com/calendar/u/0/r?cid=${calId}" target="_blank" rel="noopener">${iconSvg("calendar", 15)}${esc(t("cal.subscribe.google"))}</a>
+           <a class="cal-action-btn" href="webcal://${icsPath}">${iconSvg("arrow-right", 15)}${esc(t("cal.subscribe.apple"))}</a>
+           <a class="cal-action-btn" href="https://${icsPath}" download="kibo-eventos.ics">${iconSvg("download", 15)}${esc(t("cal.subscribe.ics"))}</a>
+         </div>
+         <p class="cal-hint">${esc(t("cal.subscribe.hint"))}</p>
+         <iframe class="cal-embed" title="${esc(t("cal.iframeTitle"))}" src="${embedSrc}" width="100%" height="${mobile ? 520 : 650}" frameborder="0" scrolling="no" loading="lazy"></iframe>`;
       bindBreadcrumb(container);
+      container.querySelectorAll(".cal-action-btn").forEach((a) => a.addEventListener("click", () => safeTrack("calendar_subscribe")));
     }
     function ensureEventModal() {
       let modal = document.getElementById("event-modal");
@@ -1251,6 +1407,7 @@ export default function KibitoApp() {
         ${e.description ? `<div class="modal-rec">${mdLite(loc(e, "description"))}</div>` : ""}
       `;
       modal.classList.add("open");
+      focusModal(modal);
     }
     function renderCalHostedPane(container: HTMLElement) {
       const years = (uniqueSorted((DATA.events as any[]).map((e) => (e.event_date ? e.event_date.slice(0, 4) : null))) as string[]).sort().reverse();
@@ -1378,15 +1535,19 @@ export default function KibitoApp() {
       "meetkibo-alumni": renderAlumniPane,
       "meetkibo-portfolio": renderPortfolioPane,
       network: overviewRenderer(NAV.find((n) => n.id === "network"), "network", "nav.network", "ov.network.subtitle", (id) =>
-        id === "network-other" ? t("ov.network.other") : t("ov.contacts", { n: String(NETWORK_CONFIG[id]?.rows.length || 0) })
+        id === "network-other"
+          ? t("ov.network.other")
+          : id === "network-mine"
+          ? t("ov.myIntros", { n: String(getMyIntros().length) })
+          : t("ov.contacts", { n: String(NETWORK_CONFIG[id]?.rows.length || 0) })
       ),
       guides: overviewRenderer(NAV.find((n) => n.id === "guides"), "book-open", "nav.guides", "guides.subtitle", (id) =>
         id === "guides-reporting"
-          ? t("ov.documents", { n: "6" })
+          ? t("ov.documents", { n: String(docsByTitles([...REPORTING_DOCS.kibo, ...REPORTING_DOCS.email, ...REPORTING_DOCS.kpi]).length) })
           : id === "guides-board"
-          ? t("ov.documents", { n: "3" })
+          ? t("ov.documents", { n: String(docsByTitles(BOARD_DOCS).length) })
           : id === "guides-pitch"
-          ? t("ov.documents", { n: "2" })
+          ? t("ov.documents", { n: String(docsByTitles(PITCH_DOCS).length) })
           : id === "guides-fund"
           ? t("guides.checklistComplete")
           : id === "guides-vc101"
@@ -1398,7 +1559,7 @@ export default function KibitoApp() {
       ),
       perks: renderPerksPane,
       calendar: overviewRenderer(NAV.find((n) => n.id === "calendar"), "calendar", "nav.calendar", "ov.calendar.subtitle", (id) =>
-        id === "cal-hosted" ? t("ov.events", { n: String(DATA.events.length) }) : t("ov.pending")
+        id === "cal-hosted" ? t("ov.events", { n: String(DATA.events.length) }) : t("ov.liveCalendar")
       ),
       other: overviewRenderer(NAV.find((n) => n.id === "other"), "folder", "nav.other", "ov.other.subtitle", (id) =>
         id === "other-ai" ? t("ov.resources", { n: String((DATA.ai_repository as any[]).length) }) : t("ov.recommendations", { n: String((DATA.top_recommendations as any[]).length) })
@@ -1406,6 +1567,7 @@ export default function KibitoApp() {
     };
     Object.keys(NETWORK_CONFIG).forEach((id) => (RENDERERS[id] = (c) => renderNetworkPane(id, c)));
     RENDERERS["network-other"] = renderOtherRequestPane;
+    RENDERERS["network-mine"] = renderMyIntrosPane;
     Object.keys(GUIDE_CONFIG).forEach((id) => (RENDERERS[id] = (c) => renderGuidePane(id, c)));
     RENDERERS["guides-reporting"] = renderReportingPane;
     RENDERERS["guides-board"] = renderBoardPane;
@@ -1430,7 +1592,9 @@ export default function KibitoApp() {
       // Se reconstruye por completo (en vez de reusar si ya existe) para que los
       // listeners siempre apunten al closure activo — evita quedarse enganchado a
       // un efecto obsoleto cuando React monta el componente dos veces (Strict Mode).
-      el.innerHTML = `<button class="lang-btn" data-lang="es">ES</button><button class="lang-btn" data-lang="en">EN</button>`;
+      el.setAttribute("role", "group");
+      el.setAttribute("aria-label", t("a11y.language"));
+      el.innerHTML = `<button class="lang-btn" data-lang="es" lang="es" aria-label="Español">ES</button><button class="lang-btn" data-lang="en" lang="en" aria-label="English">EN</button>`;
       el.querySelectorAll(".lang-btn").forEach((btn) =>
         btn.addEventListener("click", () => applyLang((btn as HTMLElement).dataset.lang as Lang))
       );
@@ -1447,6 +1611,14 @@ export default function KibitoApp() {
       });
       if (chatInputRef.current) chatInputRef.current.placeholder = t("chat.placeholder");
       if (chatSendRef.current) chatSendRef.current.textContent = t("common.send");
+      chat?.refreshStaticText();
+    }
+    function syncLangButtons(lang: Lang) {
+      document.querySelectorAll(".lang-btn").forEach((b) => {
+        const on = (b as HTMLElement).dataset.lang === lang;
+        b.classList.toggle("active", on);
+        b.setAttribute("aria-pressed", String(on));
+      });
     }
     function applyLang(lang: Lang) {
       setCurrentLang(lang);
@@ -1455,13 +1627,13 @@ export default function KibitoApp() {
       } catch (e) {
         // ignore
       }
-      document.querySelectorAll(".lang-btn").forEach((b) => b.classList.toggle("active", (b as HTMLElement).dataset.lang === lang));
+      ensureLangSwitcher();
+      syncLangButtons(lang);
       document.documentElement.lang = lang;
       renderSidebar();
       applyChatStaticText();
       selectPane(currentPaneId, false);
     }
-    ensureLangSwitcher();
     let initialLang: Lang = "es";
     try {
       const saved = localStorage.getItem("kibo_lang");
@@ -1470,8 +1642,10 @@ export default function KibitoApp() {
       // ignore
     }
     setCurrentLang(initialLang);
-    document.querySelectorAll(".lang-btn").forEach((b) => b.classList.toggle("active", (b as HTMLElement).dataset.lang === initialLang));
+    ensureLangSwitcher();
+    syncLangButtons(initialLang);
     document.documentElement.lang = initialLang;
+    renderSidebar();
     applyChatStaticText();
 
     // Arrancar en la sección del #hash (link directo o recarga) o, si no hay, en la bienvenida.
@@ -1484,186 +1658,115 @@ export default function KibitoApp() {
     selectPane(initialPane, false);
     const popstateHandler = () => selectPane(paneFromHash(), false);
     window.addEventListener("popstate", popstateHandler);
+    const a11yObserver = new MutationObserver(() => enhanceA11y(contentRef.current!));
+    a11yObserver.observe(contentRef.current!, { childList: true, subtree: true });
+    enhanceA11y(contentRef.current!);
 
     // ---------- Kibito chat ----------
-    let chatHistory: any[] = [];
-    function addMsg(role: "user" | "bot", text: string) {
-      const el = document.createElement("div");
-      el.className = "msg " + (role === "user" ? "user" : "bot");
-      el.innerHTML = (role === "user" ? "" : '<div class="msg-label">Kibito</div>') + (role === "user" ? esc(text) : mdLite(text));
-      chatScrollRef.current!.appendChild(el);
-      chatScrollRef.current!.scrollTop = chatScrollRef.current!.scrollHeight;
-      return el;
-    }
-    function renderEscalationBox(afterEl: HTMLElement, question: string) {
-      const box = document.createElement("div");
-      box.className = "escalation-box";
-      box.innerHTML = `
-        <div class="escalation-title">${iconSvg("message", 14)}${t("chat.escalation.title")}</div>
-        <textarea class="intro-input" rows="2">${esc(question)}</textarea>
-        <input class="intro-input" name="founder_name" placeholder="${esc(t("intro.yourName"))}" style="margin-top:6px;">
-        <input class="intro-input" name="startup_name" placeholder="${esc(t("intro.startup"))}" style="margin-top:6px;">
-        <button type="button" class="modal-book-btn escalation-submit" style="margin-top:8px;">${iconSvg("mail", 14)}${t("chat.escalation.send")}</button>
-      `;
-      afterEl.insertAdjacentElement("afterend", box);
-      chatScrollRef.current!.scrollTop = chatScrollRef.current!.scrollHeight;
-      const btn = box.querySelector(".escalation-submit") as HTMLButtonElement;
-      btn.addEventListener("click", async () => {
-        const reason = (box.querySelector("textarea") as HTMLTextAreaElement).value.trim();
-        const founderName = (box.querySelector('[name="founder_name"]') as HTMLInputElement).value.trim();
-        const startupName = (box.querySelector('[name="startup_name"]') as HTMLInputElement).value.trim();
-        if (!reason || !founderName) {
-          btn.textContent = t("chat.escalation.missing");
-          return;
-        }
-        btn.disabled = true;
-        btn.innerHTML = t("common.sending");
-        try {
-          const res = await fetch(`${API_BASE}/api/request-intro`, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              founder_name: founderName,
-              startup_name: startupName,
-              contact_requested: t("chat.escalation.contactLabel"),
-              reason,
-            }),
-          });
-          const data = await res.json();
-          if (!res.ok || data.error) throw new Error(data.error || "error");
-          box.innerHTML = `<div class="escalation-sent">${iconSvg("check", 14, "var(--accent-green)")}${t("chat.escalation.sent")}</div>`;
-        } catch {
-          btn.disabled = false;
-          btn.innerHTML = `${iconSvg("mail", 14)}${t("chat.escalation.send")}`;
-        }
-      });
-    }
-    const TABLE_LABELS: Record<string, string> = {
-      team: "Equipo Kibo",
-      alumni: "Alumni",
-      portfolio_founders: "Founders del portfolio",
-      vcs: "Fondos VC",
-      venture_debt: "Venture debt",
-      public_funding: "Financiación pública",
-      legal_advisors: "Abogados",
-      recruiters: "Recruiters",
-      press_media: "Prensa",
-      advisors: "Advisors",
-      restaurants: "Restaurantes",
-      events: "Eventos",
-      perks: "Perks",
-      documents: "Documentos",
-    };
-    const CARD_HIDDEN_FIELDS = new Set([
-      "id", "name", "title", "company", "email", "phone", "address", "book_url", "url", "web", "website",
-      "linkedin_url", "twitter", "contact", "contact_name", "_note", "contact_visibility",
-      "file_url", "thumbnail_url", "related_source_page", "created_at",
-    ]);
-    function linkField(row: any): { url: string; label: string } | null {
-      if (row.file_url) return { url: row.file_url, label: "Ver / Descargar" };
-      if (row.book_url) return { url: row.book_url, label: t("rest.bookTable") || "Reservar" };
-      if (row.website) return { url: row.website, label: "Web" };
-      if (row.web) return { url: row.web, label: "Web" };
-      if (row.url) return { url: row.url, label: "Web" };
-      if (row.linkedin_url) return { url: row.linkedin_url, label: "LinkedIn" };
-      return null;
-    }
-    function renderCardGroups(groups: { table: string; items: any[] }[]): string {
-      return (
-        '<div class="contact-cards">' +
-        groups
-          .map((g) => {
-            const cards = g.items
-              .slice(0, 12)
-              .map((row: any) => {
-                const title = esc(row.name || row.title || row.company || "—");
-                const sub = Object.entries(row)
-                  .filter(([k, v]) => !CARD_HIDDEN_FIELDS.has(k) && v && typeof v === "string")
-                  .slice(0, 3)
-                  .map(([, v]) => esc(String(v)))
-                  .join(" · ");
-                const link = linkField(row);
-                const actions = [
-                  link ? `<a class="contact-card-btn" href="${esc(link.url)}" target="_blank" rel="noopener">${esc(link.label)}</a>` : "",
-                  row.email ? `<a class="contact-card-btn" href="mailto:${esc(row.email)}">Email</a>` : "",
-                  row.phone ? `<a class="contact-card-btn" href="tel:${esc(row.phone)}">Llamar</a>` : "",
-                  row.address ? `<a class="contact-card-btn" href="https://maps.google.com/?q=${encodeURIComponent(row.address)}" target="_blank" rel="noopener">Mapa</a>` : "",
-                ]
-                  .filter(Boolean)
-                  .join("");
-                return (
-                  `<div class="contact-card">` +
-                  `<div class="contact-card-title">${title}</div>` +
-                  (sub ? `<div class="contact-card-sub">${sub}</div>` : "") +
-                  (actions ? `<div class="contact-card-actions">${actions}</div>` : "") +
-                  `</div>`
-                );
-              })
-              .join("");
-            return (
-              `<div class="contact-cards-group-label">${esc(TABLE_LABELS[g.table] || g.table)}</div>` +
-              `<div class="contact-cards-grid">${cards}</div>`
-            );
-          })
-          .join("") +
-        "</div>"
-      );
-    }
-    async function sendMessage(text: string) {
-      chatWelcomeRef.current!.style.display = "none";
-      addMsg("user", text);
-      chatInputRef.current!.value = "";
-      chatSendRef.current!.disabled = true;
-      const thinkingEl = addMsg("bot", "Pensando…");
-      thinkingEl.classList.add("thinking");
-      try {
-        const res = await fetch(`${API_BASE}/api/kibito`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ message: text, history: chatHistory }),
-        });
-        const data = await res.json();
-        thinkingEl.classList.remove("thinking");
-        thinkingEl.innerHTML = '<div class="msg-label">Kibito</div>' + mdLite(data.reply || "No he podido responder ahora mismo.");
-        if (data.history) chatHistory = data.history;
-        if (data.cardGroups && data.cardGroups.length) {
-          const cardsEl = document.createElement("div");
-          cardsEl.innerHTML = renderCardGroups(data.cardGroups);
-          thinkingEl.insertAdjacentElement("afterend", cardsEl.firstElementChild!);
-          chatScrollRef.current!.scrollTop = chatScrollRef.current!.scrollHeight;
-        }
-        if (data.escalated) {
-          renderEscalationBox(thinkingEl, data.question || text);
-        }
-      } catch (err) {
-        thinkingEl.classList.remove("thinking");
-        thinkingEl.innerHTML = '<div class="msg-label">Kibito</div>' + esc("No he podido conectar con el backend todavía.");
+    chat = initChat(
+      {
+        scroll: chatScrollRef.current!,
+        welcome: chatWelcomeRef.current!,
+        input: chatInputRef.current!,
+        send: chatSendRef.current!,
+        form: chatFormRef.current!,
+        contextBar: chatContextRef.current!,
+      },
+      {
+        onSend: () => {
+          markVisited("chat");
+          safeTrack("chat_message");
+        },
       }
-      chatSendRef.current!.disabled = false;
-      chatInputRef.current!.focus();
+    );
+    function askKibito(contextLabel: string | null, question?: string) {
+      selectPane("chat");
+      chat!.setContext(contextLabel);
+      if (question) chat!.send(question);
+      else chatInputRef.current!.focus();
     }
 
-    const form = document.getElementById("chat-form") as HTMLFormElement;
-    const submitHandler = (e: Event) => {
-      e.preventDefault();
-      const text = chatInputRef.current!.value.trim();
-      if (text) sendMessage(text);
-    };
-    form.addEventListener("submit", submitHandler);
-    const chips = document.querySelectorAll(".suggestion-chip");
-    const chipHandlers: [Element, EventListener][] = [];
-    chips.forEach((chip) => {
-      const handler = () => sendMessage(t((chip as HTMLElement).dataset.key || ""));
-      chip.addEventListener("click", handler);
-      chipHandlers.push([chip, handler]);
+    // ---------- Buscador global (Cmd/Ctrl+K) ----------
+    function prefillSearch(q: string) {
+      const input = contentRef.current?.querySelector("#p-search") as HTMLInputElement | null;
+      if (!input) return;
+      input.value = q;
+      input.dispatchEvent(new Event("input"));
+    }
+    function paletteItems(): PaletteItem[] {
+      const items: PaletteItem[] = [];
+      const G = {
+        sections: t("search.group.sections"),
+        people: t("search.group.people"),
+        network: t("search.group.network"),
+        restaurants: t("search.group.restaurants"),
+        documents: t("search.group.documents"),
+        events: t("search.group.events"),
+        resources: t("search.group.resources"),
+      };
+      for (const item of NAV) {
+        if (item.divider) continue;
+        items.push({ group: G.sections, title: navLabel(item), icon: item.icon, run: () => selectPane(item.id) });
+        for (const c of item.children || []) {
+          items.push({ group: G.sections, title: navLabel(c), subtitle: navLabel(item), icon: item.icon, run: () => selectPane(c.id) });
+        }
+      }
+      for (const p of DATA.team as any[]) {
+        items.push({ group: G.people, title: p.name, subtitle: `${p.position} · ${t("nav.meetkibo_team")}`, icon: "users", run: () => { selectPane("meetkibo-team"); prefillSearch(p.name); } });
+      }
+      for (const p of DATA.alumni as any[]) {
+        items.push({ group: G.people, title: p.name, subtitle: `${p.currently || ""} · Alumni`, icon: "award", run: () => selectPane("meetkibo-alumni") });
+      }
+      for (const p of DATA.portfolio_founders as any[]) {
+        items.push({ group: G.people, title: p.name, subtitle: `${p.company} · ${p.sector || ""}`, keywords: p.company, icon: "rocket", run: () => { selectPane("meetkibo-portfolio"); prefillSearch(p.name); } });
+      }
+      for (const [paneId, cfg] of Object.entries(NETWORK_CONFIG)) {
+        for (const r of cfg.rows as any[]) {
+          const primary = r.name || r.company || r.team_lead || r.contact_name || "";
+          items.push({
+            group: G.network,
+            title: cfg.label(r),
+            subtitle: paneLabel(paneId),
+            keywords: [r.sector, r.type, r.specialization, r.hq_country].flat().filter(Boolean).join(" "),
+            icon: cfg.icon,
+            run: () => { selectPane(paneId); prefillSearch(primary); },
+          });
+        }
+      }
+      for (const r of DATA.restaurants as any[]) {
+        items.push({ group: G.restaurants, title: r.name, subtitle: [r.city, r.cuisine, r.price_range].filter(Boolean).join(" · "), keywords: r.formality, icon: "utensils", run: () => { selectPane("rest-" + r.city); openRestaurantModal(r); } });
+      }
+      const vc = DATA.vc101 as any;
+      const docs = [...(DATA.documents as any[]), ...(vc?.sessions || []), ...(vc?.caselettes || []), ...(vc?.readings || [])];
+      for (const d of docs) {
+        if (!d?.file_url) continue;
+        items.push({ group: G.documents, title: d.title, subtitle: d.category || "VC 101", icon: "file-text", run: () => window.open(d.file_url, "_blank", "noopener") });
+      }
+      for (const e of DATA.events as any[]) {
+        items.push({ group: G.events, title: e.name, subtitle: [e.location, fmtEventDate(e.event_date)].filter(Boolean).join(" · "), icon: "calendar", run: () => { selectPane("cal-hosted"); openEventModal(e); } });
+      }
+      for (const i of DATA.ai_repository as any[]) {
+        items.push({ group: G.resources, title: i.title, subtitle: "AI Repository", keywords: (i.tags || []).join(" "), icon: "bot", run: () => (i.url ? window.open(i.url, "_blank", "noopener") : (selectPane("other-ai"), prefillSearch(i.title))) });
+      }
+      for (const r of DATA.top_recommendations as any[]) {
+        items.push({ group: G.resources, title: r.title, subtitle: `${r.person} · ${t("nav.other_recs")}`, icon: "lightbulb", run: () => selectPane("other-recs") });
+      }
+      return items;
+    }
+    const palette = initCommandPalette({
+      getItems: paletteItems,
+      defaultGroup: () => t("search.group.sections"),
+      onAsk: (q) => askKibito(null, q),
     });
+    openPalette = palette.open;
 
     return () => {
       window.removeEventListener("popstate", popstateHandler);
-      form.removeEventListener("submit", submitHandler);
-      chipHandlers.forEach(([chip, handler]) => chip.removeEventListener("click", handler));
+      a11yObserver.disconnect();
+      chat?.cleanup();
+      palette.cleanup();
     };
-  }, []);
+  }
 
   return (
     <div id="app">
@@ -1671,7 +1774,7 @@ export default function KibitoApp() {
       <main id="main">
         <section className="view" id="chat-view" ref={chatViewRef as any}>
           <div className="page">
-            <div id="chat-scroll" ref={chatScrollRef}>
+            <div id="chat-scroll" ref={chatScrollRef} role="log" aria-live="polite" aria-relevant="additions">
               <div className="chat-welcome" id="chat-welcome" ref={chatWelcomeRef}>
                 <div
                   className="page-icon-badge"
@@ -1704,8 +1807,9 @@ export default function KibitoApp() {
                 </div>
               </div>
             </div>
-            <form id="chat-form">
-              <input id="chat-input" type="text" placeholder="Escribe tu pregunta a Kibito…" autoComplete="off" ref={chatInputRef} />
+            <div className="chat-context" id="chat-context" ref={chatContextRef} hidden></div>
+            <form id="chat-form" ref={chatFormRef}>
+              <input id="chat-input" type="text" placeholder="Escribe tu pregunta a Kibito…" aria-label="Mensaje para Kibito" autoComplete="off" maxLength={1000} ref={chatInputRef} />
               <button id="chat-send" type="submit" ref={chatSendRef}>Enviar</button>
             </form>
           </div>

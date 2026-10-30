@@ -418,6 +418,109 @@ export const I18N: Dict = {
   "recs.toWatchDesc": { es: "Series y documentales que merecen la pena.", en: "Shows and documentaries worth watching." },
   "recs.recommends": { es: "recomienda", en: "recommends" },
   "recs.by": { es: "de", en: "by" },
+
+  // ---------- Chat ----------
+  "chat.connError": { es: "No he podido conectar con Kibito. Inténtalo de nuevo en un momento.", en: "I couldn't reach Kibito. Please try again in a moment." },
+  "chat.sessionExpired": { es: "Tu sesión ha caducado. Recarga la página para volver a entrar.", en: "Your session has expired. Reload the page to sign in again." },
+  "chat.contextLabel": { es: "Preguntando sobre", en: "Asking about" },
+  "chat.contextClear": { es: "Quitar contexto", en: "Remove context" },
+  "chat.inputLabel": { es: "Mensaje para Kibito", en: "Message for Kibito" },
+  "chat.logLabel": { es: "Conversación con Kibito", en: "Conversation with Kibito" },
+
+  // ---------- Tarjetas de resultados del chat ----------
+  "cards.open": { es: "Ver / Descargar", en: "View / Download" },
+  "cards.web": { es: "Web", en: "Website" },
+  "cards.email": { es: "Email", en: "Email" },
+  "cards.call": { es: "Llamar", en: "Call" },
+  "cards.map": { es: "Mapa", en: "Map" },
+  "cards.table.team": { es: "Equipo Kibo", en: "Kibo team" },
+  "cards.table.alumni": { es: "Alumni", en: "Alumni" },
+  "cards.table.portfolio_founders": { es: "Founders del portfolio", en: "Portfolio founders" },
+  "cards.table.vcs": { es: "Fondos VC", en: "VC funds" },
+  "cards.table.venture_debt": { es: "Venture debt", en: "Venture debt" },
+  "cards.table.public_funding": { es: "Financiación pública", en: "Public funding" },
+  "cards.table.legal_advisors": { es: "Abogados", en: "Lawyers" },
+  "cards.table.recruiters": { es: "Recruiters", en: "Recruiters" },
+  "cards.table.press_media": { es: "Prensa", en: "Press" },
+  "cards.table.advisors": { es: "Advisors", en: "Advisors" },
+  "cards.table.restaurants": { es: "Restaurantes", en: "Restaurants" },
+  "cards.table.events": { es: "Eventos", en: "Events" },
+  "cards.table.perks": { es: "Perks", en: "Perks" },
+  "cards.table.documents": { es: "Documentos", en: "Documents" },
+
+  // ---------- Pregúntale a Kibito ----------
+  "ask.button": { es: "Pregúntale a Kibito", en: "Ask Kibito" },
+  "ask.placeholder": { es: "¿Qué quieres saber sobre «{title}»?", en: "What would you like to know about “{title}”?" },
+
+  // ---------- Buscador global ----------
+  "search.button": { es: "Buscar…", en: "Search…" },
+  "search.label": { es: "Buscador", en: "Search" },
+  "search.placeholder": { es: "Busca contactos, documentos, restaurantes, secciones…", en: "Search contacts, documents, restaurants, sections…" },
+  "search.empty": { es: "Sin resultados para «{q}».", en: "No results for “{q}”." },
+  "search.hint": { es: "↑↓ para moverte · Enter para abrir · Esc para cerrar", en: "↑↓ to move · Enter to open · Esc to close" },
+  "search.askKibito": { es: "Preguntar a Kibito: «{q}»", en: "Ask Kibito: “{q}”" },
+  "search.group.sections": { es: "Secciones", en: "Sections" },
+  "search.group.people": { es: "Personas", en: "People" },
+  "search.group.network": { es: "Red profesional", en: "Professional network" },
+  "search.group.restaurants": { es: "Restaurantes", en: "Restaurants" },
+  "search.group.documents": { es: "Documentos", en: "Documents" },
+  "search.group.events": { es: "Eventos", en: "Events" },
+  "search.group.resources": { es: "Recursos", en: "Resources" },
+  "search.group.ask": { es: "Kibito AI", en: "Kibito AI" },
+
+  // ---------- Calendario ----------
+  "cal.future.subtitle": { es: "Próximos eventos de la comunidad Kibo, en directo desde Google Calendar.", en: "Upcoming Kibo community events, live from Google Calendar." },
+  "cal.subscribe.google": { es: "Añadir a Google Calendar", en: "Add to Google Calendar" },
+  "cal.subscribe.apple": { es: "Suscribirme (Apple / Outlook)", en: "Subscribe (Apple / Outlook)" },
+  "cal.subscribe.ics": { es: "Descargar .ics", en: "Download .ics" },
+  "cal.subscribe.hint": { es: "Si te suscribes, los nuevos eventos de Kibo aparecerán solos en tu calendario.", en: "Subscribe and new Kibo events will show up in your own calendar automatically." },
+  "cal.iframeTitle": { es: "Calendario de eventos de Kibo", en: "Kibo events calendar" },
+  "ov.liveCalendar": { es: "Calendario en directo", en: "Live calendar" },
+
+  // ---------- Mis solicitudes ----------
+  "nav.network_mine": { es: "Mis solicitudes", en: "My requests" },
+  "mine.subtitle": { es: "Estado de las intros que has pedido desde este navegador.", en: "Status of the intros you have requested from this browser." },
+  "mine.empty": { es: "Todavía no has pedido ninguna intro desde este navegador.", en: "You haven't requested any intros from this browser yet." },
+  "mine.browserNote": { es: "Las solicitudes se guardan en este navegador: si entras desde otro dispositivo no aparecerán aquí.", en: "Requests are saved in this browser: they won't show up if you sign in from another device." },
+  "mine.loading": { es: "Cargando…", en: "Loading…" },
+  "mine.error": { es: "No se ha podido cargar el estado de tus solicitudes.", en: "Couldn't load the status of your requests." },
+  "mine.th.contact": { es: "Contacto", en: "Contact" },
+  "mine.th.date": { es: "Fecha", en: "Date" },
+  "mine.th.status": { es: "Estado", en: "Status" },
+  "mine.th.note": { es: "Comentario del equipo", en: "Team note" },
+  "mine.status.pending": { es: "Pendiente", en: "Pending" },
+  "mine.status.approved": { es: "Aprobada", en: "Approved" },
+  "mine.status.rejected": { es: "No aprobada", en: "Not approved" },
+  "mine.status.done": { es: "Intro hecha", en: "Intro done" },
+  "ov.myIntros": { es: "{n} solicitudes", en: "{n} requests" },
+  "intro.trackHint": { es: "Puedes seguir su estado en «Mis solicitudes».", en: "You can track it under “My requests”." },
+
+  // ---------- Checklist de bienvenida ----------
+  "check.title": { es: "Tus primeros pasos en Kibo", en: "Your first steps at Kibo" },
+  "check.progress": { es: "{done} de {total} completados", en: "{done} of {total} done" },
+  "check.hide": { es: "Ocultar", en: "Hide" },
+  "check.done": { es: "¡Lo tienes todo! Ya conoces lo esencial del portal.", en: "You're all set! You know the essentials of the portal." },
+  "check.principles": { es: "Lee los principios de Kibo", en: "Read Kibo's principles" },
+  "check.portfolio": { es: "Conoce a los founders del portfolio", en: "Meet the portfolio founders" },
+  "check.reporting": { es: "Descarga la plantilla de reporting", en: "Get the reporting template" },
+  "check.network": { es: "Explora la red profesional", en: "Explore the professional network" },
+  "check.perks": { es: "Activa tus perks", en: "Claim your perks" },
+  "check.calendar": { es: "Suscríbete al calendario de eventos", en: "Subscribe to the events calendar" },
+  "check.chat": { es: "Hazle una pregunta a Kibito", en: "Ask Kibito a question" },
+
+  // ---------- Accesibilidad ----------
+  "a11y.toggleSection": { es: "Mostrar u ocultar subsecciones de {name}", en: "Show or hide {name} subsections" },
+  "a11y.mainNav": { es: "Navegación principal", en: "Main navigation" },
+  "a11y.language": { es: "Idioma", en: "Language" },
+
+  // ---------- Login ----------
+  "login.title": { es: "Portal de Founders", en: "Founders Portal" },
+  "login.lead1": { es: "Bienvenido al espacio de la comunidad de portfolio founders de", en: "Welcome to the portfolio founders community space of" },
+  "login.lead2": { es: "Introduce la contraseña de acceso para entrar.", en: "Enter the access password to continue." },
+  "login.password": { es: "Contraseña", en: "Password" },
+  "login.submit": { es: "Entrar", en: "Sign in" },
+  "login.submitting": { es: "Entrando…", en: "Signing in…" },
+  "login.error": { es: "Contraseña incorrecta.", en: "Wrong password." },
 };
 
 let currentLang: Lang = "es";
