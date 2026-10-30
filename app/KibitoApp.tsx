@@ -5,8 +5,8 @@ import DATA from "@/lib/data.json";
 import { iconSvg } from "@/lib/icons";
 import { t, loc, getLang, setCurrentLang, type Lang } from "@/lib/i18n";
 
-// Backend independiente (Railway). Vacío = mismo origen (rutas /api de Next.js).
-const API_BASE = process.env.NEXT_PUBLIC_API_BASE_URL || "";
+// El backend vive en las propias rutas /api de esta app Next.js (mismo origen).
+const API_BASE = "";
 
 export default function KibitoApp() {
   const sidebarRef = useRef<HTMLElement>(null);
