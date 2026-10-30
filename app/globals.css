@@ -110,7 +110,10 @@ h1, h2, h3, h4, h5, h6 {
 }
 a { color: var(--accent); text-decoration: none; }
 a:hover { text-decoration: underline; }
-#app { display: flex; min-height: 100vh; }
+/* Alto fijo: el menú y el contenido hacen scroll cada uno por dentro, nunca la página entera. */
+#app { display: flex; height: 100vh; height: 100dvh; overflow: hidden; overscroll-behavior: none; }
+#app #main { height: 100%; }
+#app #sidebar { overscroll-behavior: contain; }
 
 /* Language switcher */
 .lang-switcher { position:fixed; top:16px; right:20px; z-index:60; display:flex; background:var(--bg-raised); border:1px solid var(--border); border-radius:999px; padding:3px; box-shadow:var(--shadow-md); gap:2px; }
