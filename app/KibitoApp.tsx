@@ -1182,10 +1182,12 @@ export default function KibitoApp() {
     }
 
     // ================= CALENDAR & EVENTS =================
+    const KIBO_CALENDAR_EMBED_SRC =
+      "https://calendar.google.com/calendar/embed?src=c_e0c994fcb4087fa979419ba30b70248ef156d6c85f8bebcc054519c4fda6d9c4%40group.calendar.google.com&ctz=Europe%2FMadrid";
     function renderCalFuturePane(container: HTMLElement) {
       container.innerHTML =
         pageHeader("cal-future", "calendar", t("cal.future.title"), "") +
-        `<div class="callout"><span class="ic" style="color:var(--accent);">${iconSvg("calendar", 20)}</span><div>${t("cal.future.callout")}</div></div>`;
+        `<iframe src="${KIBO_CALENDAR_EMBED_SRC}" style="border:0;border-radius:var(--radius);box-shadow:var(--shadow-sm);" width="100%" height="650" frameborder="0" scrolling="no"></iframe>`;
       bindBreadcrumb(container);
     }
     function ensureEventModal() {
