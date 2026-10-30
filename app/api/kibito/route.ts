@@ -32,7 +32,11 @@ Cómo trabajar:
   del founder, y responde con naturalidad que no tienes esa información pero que
   el equipo de Kibo puede ayudarle directamente.
 - Sé breve, directo y cercano. Responde entero en el idioma del último mensaje del
-  founder, sin mezclar idiomas. No menciones nombres de tools ni de tablas.`;
+  founder, sin mezclar idiomas. No menciones nombres de tools ni de tablas.
+- Cuando uses \`search_contacts\`, el resultado ya se muestra como tarjetas debajo de
+  tu mensaje (nombre, datos y botones de contacto/reserva). NO los repitas uno por
+  uno en el texto: da solo un resumen de 1-2 frases (p.ej. "aquí tienes 5 opciones
+  en Madrid, con distintos presupuestos") y, si aplica, una pregunta de seguimiento.`;
 
 // El historial llega del navegador: solo se aceptan mensajes de usuario y respuestas de
 // texto del asistente (nada de "system" ni resultados de tools inventados).
@@ -55,6 +59,21 @@ async function runTool(sb: any, name: string, input: any) {
   return { error: `Tool desconocida: ${name}` };
 }
 
+// A partir de la salida de search_contacts (una tabla, o `all_tables`), saca
+// grupos {table, items} para que el frontend los pinte como tarjetas.
+function extractCardGroups(output: any): { table: string; items: any[] }[] {
+  if (!output || output.error) return [];
+  if (output.searched === "all_tables" && Array.isArray(output.results)) {
+    return output.results
+      .filter((r: any) => r?.table && Array.isArray(r.results) && r.results.length)
+      .map((r: any) => ({ table: r.table, items: r.results }));
+  }
+  if (output.table && Array.isArray(output.results) && output.results.length) {
+    return [{ table: output.table, items: output.results }];
+  }
+  return [];
+}
+
 export async function POST(req: NextRequest) {
   try {
     const { message, history } = await req.json();
@@ -75,6 +94,7 @@ export async function POST(req: NextRequest) {
 
     let messages: OpenAI.Chat.ChatCompletionMessageParam[] = [...sanitizeHistory(history), { role: "user", content: message }];
     let escalatedQuestion: string | null = null;
+    let cardGroups: { table: string; items: any[] }[] = [];
 
     // Bucle de tool-use: seguimos llamando al modelo y ejecutando tools
     // hasta que responda con texto final.
@@ -95,6 +115,7 @@ export async function POST(req: NextRequest) {
           reply: msg.content || "",
           history: [...messages, msg],
           ...(escalatedQuestion ? { escalated: true, question: escalatedQuestion } : {}),
+          ...(cardGroups.length ? { cardGroups } : {}),
         });
       }
 
@@ -111,6 +132,9 @@ export async function POST(req: NextRequest) {
           escalatedQuestion = args.question;
         }
         const output = await runTool(sb, call.function.name, args);
+        if (call.function.name === "search_contacts") {
+          cardGroups = extractCardGroups(output);
+        }
         messages.push({ role: "tool", tool_call_id: call.id, content: JSON.stringify(output) });
       }
     }

@@ -1536,6 +1536,75 @@ export default function KibitoApp() {
         }
       });
     }
+    const TABLE_LABELS: Record<string, string> = {
+      team: "Equipo Kibo",
+      alumni: "Alumni",
+      portfolio_founders: "Founders del portfolio",
+      vcs: "Fondos VC",
+      venture_debt: "Venture debt",
+      public_funding: "Financiación pública",
+      legal_advisors: "Abogados",
+      recruiters: "Recruiters",
+      press_media: "Prensa",
+      advisors: "Advisors",
+      restaurants: "Restaurantes",
+      events: "Eventos",
+      perks: "Perks",
+      documents: "Documentos",
+    };
+    const CARD_HIDDEN_FIELDS = new Set([
+      "id", "name", "company", "email", "phone", "address", "book_url", "url", "web", "website",
+      "linkedin_url", "twitter", "contact", "contact_name", "_note", "contact_visibility",
+    ]);
+    function linkField(row: any): { url: string; label: string } | null {
+      if (row.book_url) return { url: row.book_url, label: t("rest.bookTable") || "Reservar" };
+      if (row.website) return { url: row.website, label: "Web" };
+      if (row.web) return { url: row.web, label: "Web" };
+      if (row.url) return { url: row.url, label: "Web" };
+      if (row.linkedin_url) return { url: row.linkedin_url, label: "LinkedIn" };
+      return null;
+    }
+    function renderCardGroups(groups: { table: string; items: any[] }[]): string {
+      return (
+        '<div class="contact-cards">' +
+        groups
+          .map((g) => {
+            const cards = g.items
+              .slice(0, 12)
+              .map((row: any) => {
+                const title = esc(row.name || row.company || "—");
+                const sub = Object.entries(row)
+                  .filter(([k, v]) => !CARD_HIDDEN_FIELDS.has(k) && v && typeof v === "string")
+                  .slice(0, 3)
+                  .map(([, v]) => esc(String(v)))
+                  .join(" · ");
+                const link = linkField(row);
+                const actions = [
+                  link ? `<a class="contact-card-btn" href="${esc(link.url)}" target="_blank" rel="noopener">${esc(link.label)}</a>` : "",
+                  row.email ? `<a class="contact-card-btn" href="mailto:${esc(row.email)}">Email</a>` : "",
+                  row.phone ? `<a class="contact-card-btn" href="tel:${esc(row.phone)}">Llamar</a>` : "",
+                  row.address ? `<a class="contact-card-btn" href="https://maps.google.com/?q=${encodeURIComponent(row.address)}" target="_blank" rel="noopener">Mapa</a>` : "",
+                ]
+                  .filter(Boolean)
+                  .join("");
+                return (
+                  `<div class="contact-card">` +
+                  `<div class="contact-card-title">${title}</div>` +
+                  (sub ? `<div class="contact-card-sub">${sub}</div>` : "") +
+                  (actions ? `<div class="contact-card-actions">${actions}</div>` : "") +
+                  `</div>`
+                );
+              })
+              .join("");
+            return (
+              `<div class="contact-cards-group-label">${esc(TABLE_LABELS[g.table] || g.table)}</div>` +
+              `<div class="contact-cards-grid">${cards}</div>`
+            );
+          })
+          .join("") +
+        "</div>"
+      );
+    }
     async function sendMessage(text: string) {
       chatWelcomeRef.current!.style.display = "none";
       addMsg("user", text);
@@ -1553,6 +1622,12 @@ export default function KibitoApp() {
         thinkingEl.classList.remove("thinking");
         thinkingEl.innerHTML = '<div class="msg-label">Kibito</div>' + mdLite(data.reply || "No he podido responder ahora mismo.");
         if (data.history) chatHistory = data.history;
+        if (data.cardGroups && data.cardGroups.length) {
+          const cardsEl = document.createElement("div");
+          cardsEl.innerHTML = renderCardGroups(data.cardGroups);
+          thinkingEl.insertAdjacentElement("afterend", cardsEl.firstElementChild!);
+          chatScrollRef.current!.scrollTop = chatScrollRef.current!.scrollHeight;
+        }
         if (data.escalated) {
           renderEscalationBox(thinkingEl, data.question || text);
         }
