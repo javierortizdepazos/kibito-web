@@ -1040,6 +1040,28 @@ export default function KibitoApp() {
               </div>
             </section>`
           : "";
+      const numbered = (items: string[]) => `<ol class="numbered-list">${items.map((i) => `<li>${esc(i)}</li>`).join("")}</ol>`;
+      const subTitle = (title: string) => `<h4 style="font-size:13.5px;font-weight:700;margin:16px 0 8px;color:var(--text);">${esc(title)}</h4>`;
+      const dataRoom: [string, string[]][] = [
+        ["Company Summary", ["One Pager", "Deck", "Case study"]],
+        ["Company documents", ["Cap table", "Convertible notes", "Shareholder agreements", "Incorporation documents"]],
+        ["Financials & traction", ["Budget", "Financial projections", "Historicals", "Unit economics"]],
+        ["Clients", ["Closed contracts", "Pipeline", "Cohorts & usage data"]],
+        ["Growth drivers", ["Growth plan", "Flywheel", "New business lines & M&A"]],
+        ["Market", ["Detailed market opportunity", "Competitive analysis"]],
+        ["Team & organization", ["Team structure", "Detailed leadership team description & bios", "ESOPs allocation", "Culture & Employee satisfaction"]],
+        ["Legal", ["Tech & security agreements", "Patents / Trademarks", "Policies", "Other relevant legal docs"]],
+      ];
+      const outlines = `<section class="fund-index">
+        <h3 class="fund-index-title">${esc(t("guides.fund.nutshell"))}</h3>
+        <p class="fund-index-intro">${esc(t("fund.index.intro"))}</p>
+        <div class="two-col-grid">
+          <div>${subTitle(t("fund.index.pitch"))}${numbered(["Vision", "Problem", "Solution/Product", "Business Model", "Market Size", "KPIs & Financials", "Team", "Competition", "Roadmap", "Deal structure"])}</div>
+          <div>${subTitle(t("fund.index.bp"))}${numbered(["Historicals", "Identify the main KPIs", "Make bottom-up growth assumptions", "Model the future projection", "Asses the evolution of your main KPIs", "Make a summary of your P&L, BS & CF", "Create logic and sanity checks"])}</div>
+        </div>
+        ${subTitle(t("fund.index.dr"))}
+        ${dataRoom.map(([title, items]) => `<div class="dataroom-group"><div class="dg-title" style="display:flex;align-items:center;gap:6px;">${iconSvg("folder", 16, "var(--accent)")} <span>${esc(title)}</span></div><ul>${items.map((i) => `<li>${esc(i)}</li>`).join("")}</ul></div>`).join("")}
+      </section>`;
       container.innerHTML =
         pageHeader("guides-fund", "trending-up", t("nav.guides_fund"), esc(t("fund.subtitle"))) +
         `<div class="callout"><span class="ic" style="color:var(--accent);">${iconSvg("info", 20)}</span><div>
@@ -1052,7 +1074,8 @@ export default function KibitoApp() {
           "tpl",
           t("fund.tpl.title"),
           `<p class="fund-doc-note">${esc(t("fund.tpl.edit"))} <button type="button" class="page-link" data-goto="guides-pitch">${esc(t("fund.tpl.editLink"))} →</button></p>`
-        );
+        ) +
+        outlines;
       bindBreadcrumb(container);
     }
 

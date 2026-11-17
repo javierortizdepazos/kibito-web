@@ -477,6 +477,10 @@ export const I18N: Dict = {
   "fund.tpl.i5": { es: "Equipo y ronda: quién eres, cuánto levantas, en qué usarás el dinero, hasta dónde te lleva y qué rondas e inversores tienes ya.", en: "Team and round: who you are, how much you are raising, what the money is for, where it takes you and your previous rounds and investors." },
   "fund.tpl.when": { es: "Como esqueleto de tu deck cuando vayas a levantar una ronda.", en: "As the skeleton of your deck when you are about to raise a round." },
   "fund.tpl.edit": { es: "¿La quieres editable? La versión PPTX está en la sección Pitch Deck.", en: "Want it editable? The PPTX version is in the Pitch Deck section." },
+  "fund.index.intro": { es: "Estos son los índices que recomendamos para preparar tu ronda. Úsalos como guía para estructurar tu pitch deck, tu business plan y tu data room.", en: "These are the outlines we recommend to prepare your round. Use them as a guide to structure your pitch deck, your business plan and your data room." },
+  "fund.index.pitch": { es: "Índice recomendado del Pitch Deck", en: "Recommended Pitch Deck outline" },
+  "fund.index.bp": { es: "Índice recomendado del Business Plan", en: "Recommended Business Plan outline" },
+  "fund.index.dr": { es: "Índice recomendado del Data Room", en: "Recommended Data Room outline" },
   "fund.tpl.editLink": { es: "Ir a Pitch Deck", en: "Go to Pitch Deck" },
 
   // ---------- AI Repository ----------
