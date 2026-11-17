@@ -262,6 +262,8 @@ export default function KibitoApp() {
       `<svg width="${size}" height="${size}" viewBox="0 0 218 218" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M0 45.6746H140.002L4.05982 181.387L36.3333 213.695L172.358 77.9421V218L218 172.284V0H45.6832L0 45.6746Z" fill="${color}"/></svg>`;
     const BRAND_ARROW_STACK = `<div class="brand-arrows">${["#EF3A47", "#F9C521", "#1FC974", "#4594F4"].map((c) => kiboArrow(c)).join("")}</div>`;
 
+    // El menú nace desplegado; solo se recuerdan las secciones que el usuario pliega a mano.
+    const collapsedNav = new Set<string>();
     function renderSidebar() {
       const isMac = /Mac|iPhone|iPad/.test(navigator.platform || navigator.userAgent);
       sidebarEl.setAttribute("aria-label", t("a11y.mainNav"));
@@ -273,12 +275,13 @@ export default function KibitoApp() {
         NAV.map((item) => {
           if (item.divider) return '<div class="sidebar-divider"></div>';
           const hasChildren = item.children && item.children.length;
+          const open = !collapsedNav.has(item.id);
           return `<div>
             <div class="navrow">
               <button class="navitem" data-pane="${item.id}"><span class="ic">${iconSvg(item.icon, 16, "currentColor")}</span><span class="label">${esc(navLabel(item))}</span></button>
-              ${hasChildren ? `<button class="navchevron" data-toggle-parent="${item.id}" aria-expanded="false" aria-controls="children-${item.id}" aria-label="${esc(t("a11y.toggleSection", { name: navLabel(item) }))}">▶</button>` : ""}
+              ${hasChildren ? `<button class="navchevron${open ? " open" : ""}" data-toggle-parent="${item.id}" aria-expanded="${open}" aria-controls="children-${item.id}" aria-label="${esc(t("a11y.toggleSection", { name: navLabel(item) }))}">▶</button>` : ""}
             </div>
-            ${hasChildren ? `<div class="navchildren" id="children-${item.id}">${item.children.map((c: any) => `<button class="navchild" data-pane="${c.id}">${esc(navLabel(c))}</button>`).join("")}</div>` : ""}
+            ${hasChildren ? `<div class="navchildren${open ? " open" : ""}" id="children-${item.id}">${item.children.map((c: any) => `<button class="navchild" data-pane="${c.id}">${esc(navLabel(c))}</button>`).join("")}</div>` : ""}
           </div>`;
         }).join("") +
         `<div class="footer-note">${BRAND_ARROW_STACK}${esc(t("nav.footer"))}<br><button id="logout-btn" style="margin-top:8px;background:none;border:1px solid rgba(255,255,255,0.2);color:rgba(255,255,255,0.7);border-radius:6px;padding:4px 10px;font-size:11px;cursor:pointer;font-family:inherit;">${esc(t("nav.logout"))}</button></div>`;
@@ -303,6 +306,8 @@ export default function KibitoApp() {
           const open = document.getElementById("children-" + id)!.classList.toggle("open");
           (btn as HTMLElement).classList.toggle("open", open);
           btn.setAttribute("aria-expanded", String(open));
+          if (open) collapsedNav.delete(id);
+          else collapsedNav.add(id);
         })
       );
     }
@@ -321,6 +326,7 @@ export default function KibitoApp() {
       }
       const parent = paneParent(paneId);
       if (parent) {
+        collapsedNav.delete(parent.id);
         const childrenEl = document.getElementById("children-" + parent.id);
         if (childrenEl) childrenEl.classList.add("open");
         const chev = sidebarEl.querySelector(`[data-toggle-parent="${parent.id}"]`);
