@@ -123,12 +123,13 @@ export default function KibitoApp() {
       for (let i = 0; i < seed.length; i++) h = seed.charCodeAt(i) + ((h << 5) - h);
       return BRAND_COLORS[Math.abs(h) % BRAND_COLORS.length];
     }
-    function avatar(name: string, photoUrl?: string | null) {
+    function avatar(name: string, photoUrl?: string | null, large = false) {
+      const cls = large ? "avatar avatar-lg" : "avatar";
       if (photoUrl) {
-        return `<img class="avatar" src="${esc(photoUrl)}" alt="${esc(name || "")}">`;
+        return `<img class="${cls}" src="${esc(photoUrl)}" alt="${esc(name || "")}">`;
       }
       const initials = (name || "?").split(" ").filter(Boolean).slice(0, 2).map((w) => w[0]).join("").toUpperCase();
-      return `<span class="avatar" style="background:${hashColor(name || "?")}">${esc(initials)}</span>`;
+      return `<span class="${cls}" style="background:${hashColor(name || "?")}">${esc(initials)}</span>`;
     }
     function badge(text?: string | null, colorKey?: string) {
       if (!text) return "";
@@ -577,7 +578,7 @@ export default function KibitoApp() {
         container.querySelector("#p-tbody")!.innerHTML = rows
           .map(
             (p) =>
-              `<tr><td><div class="namecell">${avatar(p.name, p.photo_url)}${esc(p.name)}</div></td><td>${esc(p.position)}</td><td>${p.linkedin_url ? `<a href="${esc(p.linkedin_url)}" target="_blank" rel="noopener">LinkedIn ↗</a>` : p.email || ""}</td></tr>`
+              `<tr><td><div class="namecell">${avatar(p.name, p.photo_url, true)}${esc(p.name)}</div></td><td>${esc(p.position)}</td><td>${p.linkedin_url ? `<a href="${esc(p.linkedin_url)}" target="_blank" rel="noopener">LinkedIn ↗</a>` : p.email || ""}</td></tr>`
           )
           .join("");
       }

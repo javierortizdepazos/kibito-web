@@ -648,3 +648,7 @@ button.page-link { background:none; border:none; padding:0; color:var(--accent-2
 .adm-cell:focus { border-color:var(--accent-2); background:var(--bg); outline:none; }
 .adm-icon-btn { border:none; background:none; color:var(--text-lighter); cursor:pointer; padding:6px 8px; border-radius:6px; }
 .adm-icon-btn:hover { color:var(--accent); background:var(--accent-bg); }
+
+/* Fotos grandes en la página del equipo */
+.avatar.avatar-lg { width:60px; height:60px; font-size:19px; }
+.namecell:has(.avatar-lg) { gap:14px; }
