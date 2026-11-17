@@ -970,6 +970,7 @@ export default function KibitoApp() {
 
     // ================= GUÍAS =================
     // Las mismas listas alimentan cada página y su contador en la vista general.
+    const FUND_DOCS = { guide: "How to nail your Series A (Aquilino)", template: "Kibo Pitch Deck Template (PDF)" };
     const PITCH_DOCS = ["Kibo Pitch Deck Template (PPTX)", "Kibo Pitch Deck Template (PDF)"];
     const BOARD_DOCS = ["Kibo Board Deck Template (PPTX)", "Kibo Board Deck Template (PDF)", "Creandum Board Deck Template"];
     const REPORTING_DOCS = {
@@ -1019,31 +1020,39 @@ export default function KibitoApp() {
     delete GUIDE_CONFIG["guides-fund"];
 
     function renderFundPane(container: HTMLElement) {
-      const doc = docsByTitles(["How to nail your new round (guía)"]);
-      const sectionTitle = (t: string) => `<h3 style="font-family:'Space Grotesk',sans-serif;font-size:15.5px;font-weight:600;margin:26px 0 4px;">${esc(t)}</h3>`;
-      const subTitle = (t: string) => `<h4 style="font-size:13.5px;font-weight:700;margin:16px 0 8px;color:var(--text);">${esc(t)}</h4>`;
-      const numbered = (items: string[]) => `<ol class="numbered-list">${items.map((i) => `<li>${esc(i)}</li>`).join("")}</ol>`;
-      const dataRoom: [string, string[]][] = [
-        ["Company Summary", ["One Pager", "Deck", "Case study"]],
-        ["Company documents", ["Cap table", "Convertible notes", "Shareholder agreements", "Incorporation documents"]],
-        ["Financials & traction", ["Budget", "Financial projections", "Historicals", "Unit economics"]],
-        ["Clients", ["Closed contracts", "Pipeline", "Cohorts & usage data"]],
-        ["Growth drivers", ["Growth plan", "Flywheel", "New business lines & M&A"]],
-        ["Market", ["Detailed market opportunity", "Competitive analysis"]],
-        ["Team & organization", ["Team structure", "Detailed leadership team description & bios", "ESOPs allocation", "Culture & Employee satisfaction"]],
-        ["Legal", ["Tech & security agreements", "Patents / Trademarks", "Policies", "Other relevant legal docs"]],
-      ];
+      const guide = docsByTitles([FUND_DOCS.guide])[0];
+      const tpl = docsByTitles([FUND_DOCS.template])[0];
+      const fundDoc = (doc: any, key: string, shownTitle: string, extra = "") =>
+        doc
+          ? `<section class="fund-doc">
+              <div class="fund-doc-thumb"><div class="doc-grid">${docCard({ ...doc, title: shownTitle })}</div></div>
+              <div class="fund-doc-body">
+                <h3 class="fund-doc-title">${esc(shownTitle)}</h3>
+                <div class="fund-doc-meta">${esc(t(`fund.${key}.meta`))}</div>
+                <h4>${esc(t("fund.what"))}</h4>
+                <p>${esc(t(`fund.${key}.what`))}</p>
+                <h4>${esc(t("fund.inside"))}</h4>
+                <ul class="fund-doc-list">${[1, 2, 3, 4, 5].map((n) => `<li>${esc(t(`fund.${key}.i${n}`))}</li>`).join("")}</ul>
+                <h4>${esc(t("fund.when"))}</h4>
+                <p>${esc(t(`fund.${key}.when`))}</p>
+                ${extra}
+                <a class="modal-book-btn fund-doc-btn" href="${esc(doc.file_url)}" target="_blank" rel="noopener">${iconSvg("download", 15)}${esc(t("fund.open"))}</a>
+              </div>
+            </section>`
+          : "";
       container.innerHTML =
-        pageHeader("guides-fund", "trending-up", t("guides.fund.title"), "") +
-        `<div class="callout"><span class="ic" style="color:var(--accent);">${iconSvg("info", 20)}</span><div>${t("guides.fund.callout")}</div></div>
-         <div class="doc-grid" style="max-width:170px;">${doc.map((d) => docCard(d)).join("")}</div>
-         ${sectionTitle(t("guides.fund.nutshell"))}
-         <div class="two-col-grid">
-           <div>${subTitle("Pitch Deck")}${numbered(["Vision", "Problem", "Solution/Product", "Business Model", "Market Size", "KPIs & Financials", "Team", "Competition", "Roadmap", "Deal structure"])}</div>
-           <div>${subTitle("Business Plan")}${numbered(["Historicals", "Identify the main KPIs", "Make bottom-up growth assumptions", "Model the future projection", "Asses the evolution of your main KPIs", "Make a summary of your P&L, BS & CF", "Create logic and sanity checks"])}</div>
-         </div>
-         ${subTitle("Data Room")}
-         ${dataRoom.map(([title, items]) => `<div class="dataroom-group"><div class="dg-title" style="display:flex;align-items:center;gap:6px;">${iconSvg("folder", 16, "var(--accent)")} <span>${esc(title)}</span></div><ul>${items.map((i) => `<li>${esc(i)}</li>`).join("")}</ul></div>`).join("")}`;
+        pageHeader("guides-fund", "trending-up", t("nav.guides_fund"), esc(t("fund.subtitle"))) +
+        `<div class="callout"><span class="ic" style="color:var(--accent);">${iconSvg("info", 20)}</span><div>
+           <b>${esc(t("fund.howTo.title"))}</b>
+           <ol class="fund-steps"><li>${esc(t("fund.howTo.s1"))}</li><li>${esc(t("fund.howTo.s2"))}</li></ol>
+         </div></div>` +
+        fundDoc(guide, "guide", t("fund.guide.title"), `<p class="fund-doc-note">${esc(t("fund.guide.note"))}</p>`) +
+        fundDoc(
+          tpl,
+          "tpl",
+          t("fund.tpl.title"),
+          `<p class="fund-doc-note">${esc(t("fund.tpl.edit"))} <button type="button" class="page-link" data-goto="guides-pitch">${esc(t("fund.tpl.editLink"))} →</button></p>`
+        );
       bindBreadcrumb(container);
     }
 
@@ -1576,7 +1585,7 @@ export default function KibitoApp() {
           : id === "guides-pitch"
           ? t("ov.documents", { n: String(docsByTitles(PITCH_DOCS).length) })
           : id === "guides-fund"
-          ? t("guides.checklistComplete")
+          ? t("ov.documents", { n: String(docsByTitles(Object.values(FUND_DOCS)).length) })
           : id === "guides-vc101"
           ? t("ov.documents", { n: String((DATA.vc101 as any).sessions.length + (DATA.vc101 as any).caselettes.length + (DATA.vc101 as any).readings.length) })
           : t("ov.documents", { n: String(GUIDE_CONFIG[id]?.docs.length || 0) })

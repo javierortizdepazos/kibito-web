@@ -659,3 +659,17 @@ button.page-link { background:none; border:none; padding:0; color:var(--accent-2
 .ai-notes-chev { display:inline-block; font-size:10px; transition:transform .15s; }
 .ai-notes-toggle[aria-expanded="true"] .ai-notes-chev { transform:rotate(90deg); }
 .ai-item-notes[hidden] { display:none; }
+
+/* ---------- Fundraising: dos documentos explicados ---------- */
+.fund-steps { margin:6px 0 0; padding-left:20px; line-height:1.55; }
+.fund-doc { display:grid; grid-template-columns:190px 1fr; gap:26px; padding:24px 0; border-top:1px solid var(--border); align-items:start; }
+.fund-doc-thumb .doc-grid { margin:0; display:block; }
+.fund-doc-title { font-family:"Space Grotesk",sans-serif; font-size:19px; font-weight:700; margin:0 0 4px; color:var(--text); }
+.fund-doc-meta { font-size:12.5px; color:var(--text-light); margin-bottom:12px; }
+.fund-doc-body h4 { font-size:11.5px; font-weight:700; text-transform:uppercase; letter-spacing:.05em; color:var(--text-lighter); margin:16px 0 6px; }
+.fund-doc-body p { font-size:14px; line-height:1.6; color:var(--text); margin:0; max-width:720px; }
+.fund-doc-list { margin:0; padding-left:20px; max-width:720px; font-size:14px; line-height:1.6; color:var(--text); }
+.fund-doc-list li { margin-bottom:6px; }
+.fund-doc-note { font-size:13px !important; color:var(--text-light) !important; margin-top:12px !important; }
+.fund-doc-btn { display:inline-flex; width:auto; padding:10px 18px; margin-top:16px; }
+@media (max-width:700px) { .fund-doc { grid-template-columns:1fr; gap:14px; } .fund-doc-thumb { max-width:190px; } }
