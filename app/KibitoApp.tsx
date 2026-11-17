@@ -213,7 +213,6 @@ export default function KibitoApp() {
         children: [
           { id: "guides-reporting", labelKey: "nav.guides_reporting" },
           { id: "guides-board", labelKey: "nav.guides_board" },
-          { id: "guides-pitch", labelKey: "nav.guides_pitch" },
           { id: "guides-fund", labelKey: "nav.guides_fund" },
           { id: "guides-vc101", labelKey: "nav.guides_vc101" },
         ],
@@ -970,8 +969,7 @@ export default function KibitoApp() {
 
     // ================= GUÍAS =================
     // Las mismas listas alimentan cada página y su contador en la vista general.
-    const FUND_DOCS = { guide: "How to nail your Series A (Aquilino)", template: "Kibo Pitch Deck Template (PDF)" };
-    const PITCH_DOCS = ["Kibo Pitch Deck Template (PPTX)", "Kibo Pitch Deck Template (PDF)"];
+    const FUND_DOCS = { guide: "How to nail your Series A (Aquilino)", pptx: "Kibo Pitch Deck Template (PPTX)", pdf: "Kibo Pitch Deck Template (PDF)" };
     const BOARD_DOCS = ["Kibo Board Deck Template (PPTX)", "Kibo Board Deck Template (PDF)", "Creandum Board Deck Template"];
     const REPORTING_DOCS = {
       kibo: ["Kibo Excel Reporting Template", "Kibo Mail Reporting Template"],
@@ -999,12 +997,6 @@ export default function KibitoApp() {
         kc: ["How to do first-class board meetings"],
         docs: ["Kibo Board Deck Template (PPTX)", "Kibo Board Deck Template (PDF)", "How to do first-class board meetings (guía)", "Creandum Board Deck Template"],
       },
-      "guides-pitch": {
-        icon: "file-text",
-        title: "Your Guide to a Winning Deck (Series A/B)",
-        kc: ["Your Guide to a Winning Deck (Series A/B)"],
-        docs: ["Kibo Pitch Deck Template (PPTX)", "Kibo Pitch Deck Template (PDF)", "Your Guide to a Winning Deck (guía)"],
-      },
       "guides-fund": {
         icon: "trending-up",
         title: "How to nail your new round",
@@ -1016,32 +1008,57 @@ export default function KibitoApp() {
     // páginas originales de Notion), así que no usan el layout genérico.
     delete GUIDE_CONFIG["guides-reporting"];
     delete GUIDE_CONFIG["guides-board"];
-    delete GUIDE_CONFIG["guides-pitch"];
     delete GUIDE_CONFIG["guides-fund"];
 
     function renderFundPane(container: HTMLElement) {
       const guide = docsByTitles([FUND_DOCS.guide])[0];
-      const tpl = docsByTitles([FUND_DOCS.template])[0];
-      const fundDoc = (doc: any, key: string, shownTitle: string, extra = "") =>
-        doc
-          ? `<section class="fund-doc">
-              <div class="fund-doc-thumb"><div class="doc-grid">${docCard({ ...doc, title: shownTitle })}</div></div>
-              <div class="fund-doc-body">
-                <h3 class="fund-doc-title">${esc(shownTitle)}</h3>
-                <div class="fund-doc-meta">${esc(t(`fund.${key}.meta`))}</div>
-                <h4>${esc(t("fund.what"))}</h4>
-                <p>${esc(t(`fund.${key}.what`))}</p>
-                <h4>${esc(t("fund.inside"))}</h4>
-                <ul class="fund-doc-list">${[1, 2, 3, 4, 5].map((n) => `<li>${esc(t(`fund.${key}.i${n}`))}</li>`).join("")}</ul>
-                <h4>${esc(t("fund.when"))}</h4>
-                <p>${esc(t(`fund.${key}.when`))}</p>
-                ${extra}
-                <a class="modal-book-btn fund-doc-btn" href="${esc(doc.file_url)}" target="_blank" rel="noopener">${iconSvg("download", 15)}${esc(t("fund.open"))}</a>
-              </div>
-            </section>`
-          : "";
+      const pptx = docsByTitles([FUND_DOCS.pptx])[0];
+      const pdf = docsByTitles([FUND_DOCS.pdf])[0];
+      const btn = (doc: any, label: string, icon = "download") =>
+        `<a class="modal-book-btn fund-doc-btn" href="${esc(doc.file_url)}" target="_blank" rel="noopener">${iconSvg(icon, 15)}${esc(label)}</a>`;
+      const bullets = (key: string) => `<ul class="fund-doc-list">${[1, 2, 3, 4, 5].map((n) => `<li>${esc(t(`fund.${key}.i${n}`))}</li>`).join("")}</ul>`;
       const numbered = (items: string[]) => `<ol class="numbered-list">${items.map((i) => `<li>${esc(i)}</li>`).join("")}</ol>`;
       const subTitle = (title: string) => `<h4 style="font-size:13.5px;font-weight:700;margin:16px 0 8px;color:var(--text);">${esc(title)}</h4>`;
+
+      const guideSection = guide
+        ? `<section class="fund-doc">
+            <div class="fund-doc-thumb"><div class="doc-grid">${docCard({ ...guide, title: t("fund.guide.title") })}</div></div>
+            <div class="fund-doc-body">
+              <h3 class="fund-doc-title">${esc(t("fund.guide.title"))}</h3>
+              <div class="fund-doc-meta">${esc(t("fund.guide.meta"))}</div>
+              <h4>${esc(t("fund.what"))}</h4><p>${esc(t("fund.guide.what"))}</p>
+              <h4>${esc(t("fund.inside"))}</h4>${bullets("guide")}
+              <h4>${esc(t("fund.when"))}</h4><p>${esc(t("fund.guide.when"))}</p>
+              <p class="fund-doc-note">${esc(t("fund.guide.note"))}</p>
+              ${btn(guide, t("fund.open"))}
+            </div>
+          </section>`
+        : "";
+
+      const tplCards = [
+        pptx && docCard({ ...pptx, title: `${t("fund.tpl.title")} (PPTX)` }),
+        pdf && docCard({ ...pdf, title: `${t("fund.tpl.title")} (PDF)` }),
+      ].filter(Boolean).join("");
+      const tplSection = tplCards
+        ? `<section class="fund-doc">
+            <div class="fund-doc-thumb"><div class="doc-grid">${tplCards}</div></div>
+            <div class="fund-doc-body">
+              <h3 class="fund-doc-title">${esc(t("fund.tpl.title"))}</h3>
+              <div class="fund-doc-meta">${esc(t("fund.tpl.meta"))}</div>
+              <h4>${esc(t("fund.what"))}</h4><p>${esc(t("fund.tpl.what"))}</p><p style="margin-top:8px;">${esc(t("guides.pitch.li1"))}</p>
+              <h4>${esc(t("fund.inside"))}</h4>${bullets("tpl")}
+              <h4>${esc(t("fund.tpl.when"))}</h4>
+              <ul class="fund-doc-list"><li>${esc(t("guides.pitch.li2a"))}</li><li>${esc(t("guides.pitch.li2b"))}</li><li>${esc(t("guides.copyUse"))}</li></ul>
+              <div class="fund-doc-btns">${pptx ? btn(pptx, t("fund.tpl.pptx")) : ""}${pdf ? btn(pdf, t("fund.open"), "file-text") : ""}</div>
+            </div>
+          </section>`
+        : "";
+
+      const otherReads = `<section class="fund-index">
+        <h3 class="fund-index-title">${esc(t("guides.otherReads"))}</h3>
+        <div class="doc-row"><a class="page-link" href="https://blog.creandum.com/creandum-series-a-deck-template-21a6df9c1ac4" target="_blank" rel="noopener"><span class="ic" style="display:inline-flex;margin-right:6px;">${iconSvg("file-text", 16)}</span>${esc(t("guides.pitchOtherLink"))} ↗</a></div>
+      </section>`;
+
       const dataRoom: [string, string[]][] = [
         ["Company Summary", ["One Pager", "Deck", "Case study"]],
         ["Company documents", ["Cap table", "Convertible notes", "Shareholder agreements", "Incorporation documents"]],
@@ -1062,37 +1079,18 @@ export default function KibitoApp() {
         ${subTitle(t("fund.index.dr"))}
         ${dataRoom.map(([title, items]) => `<div class="dataroom-group"><div class="dg-title" style="display:flex;align-items:center;gap:6px;">${iconSvg("folder", 16, "var(--accent)")} <span>${esc(title)}</span></div><ul>${items.map((i) => `<li>${esc(i)}</li>`).join("")}</ul></div>`).join("")}
       </section>`;
+
       container.innerHTML =
         pageHeader("guides-fund", "trending-up", t("nav.guides_fund"), esc(t("fund.subtitle"))) +
         `<div class="callout"><span class="ic" style="color:var(--accent);">${iconSvg("info", 20)}</span><div>
            <b>${esc(t("fund.howTo.title"))}</b>
-           <ol class="fund-steps"><li>${esc(t("fund.howTo.s1"))}</li><li>${esc(t("fund.howTo.s2"))}</li></ol>
+           <ol class="fund-steps"><li>${esc(t("fund.howTo.s1"))}</li><li>${esc(t("fund.howTo.s2"))}</li><li>${esc(t("fund.howTo.s3"))}</li></ol>
          </div></div>` +
-        fundDoc(guide, "guide", t("fund.guide.title"), `<p class="fund-doc-note">${esc(t("fund.guide.note"))}</p>`) +
-        fundDoc(
-          tpl,
-          "tpl",
-          t("fund.tpl.title"),
-          `<p class="fund-doc-note">${esc(t("fund.tpl.edit"))} <button type="button" class="page-link" data-goto="guides-pitch">${esc(t("fund.tpl.editLink"))} →</button></p>`
-        ) +
-        outlines;
-      bindBreadcrumb(container);
-    }
-
-    function renderPitchPane(container: HTMLElement) {
-      const downloads = docsByTitles(PITCH_DOCS);
-      const sectionTitle = (t: string) => `<h3 style="font-family:'Space Grotesk',sans-serif;font-size:15.5px;font-weight:600;margin:26px 0 4px;">${esc(t)}</h3>`;
-      const list = (items: string[]) => `<ul class="principle-list" style="margin-bottom:14px;">${items.map((i) => `<li><span class="chk">•</span>${i}</li>`).join("")}</ul>`;
-      container.innerHTML =
-        pageHeader("guides-pitch", "file-text", t("guides.pitch.title"), "") +
-        `<div class="callout"><span class="ic" style="color:var(--accent);">${iconSvg("lightbulb", 20)}</span><div>${t("guides.pitch.callout")}</div></div>
-         ${list([t("guides.pitch.li1"), t("guides.contactUs")])}
-         ${sectionTitle(t("guides.howToUse"))}
-         ${list([t("guides.pitch.li2a"), t("guides.pitch.li2b"), t("guides.copyUse")])}
-         ${sectionTitle(t("guides.download"))}
-         <div class="doc-grid">${downloads.map((d) => docCard(d)).join("")}</div>
-         ${sectionTitle(t("guides.otherReads"))}
-         <div class="doc-row"><a class="page-link" href="https://blog.creandum.com/creandum-series-a-deck-template-21a6df9c1ac4" target="_blank" rel="noopener"><span class="ic" style="display:inline-flex;margin-right:6px;">${iconSvg("file-text", 16)}</span>${t("guides.pitchOtherLink")} ↗</a></div>`;
+        guideSection +
+        tplSection +
+        otherReads +
+        outlines +
+        `<p class="fund-contact">${esc(t("fund.contact"))}</p>`;
       bindBreadcrumb(container);
     }
 
@@ -1605,8 +1603,6 @@ export default function KibitoApp() {
           ? t("ov.documents", { n: String(docsByTitles([...REPORTING_DOCS.kibo, ...REPORTING_DOCS.email, ...REPORTING_DOCS.kpi]).length) })
           : id === "guides-board"
           ? t("ov.documents", { n: String(docsByTitles(BOARD_DOCS).length) })
-          : id === "guides-pitch"
-          ? t("ov.documents", { n: String(docsByTitles(PITCH_DOCS).length) })
           : id === "guides-fund"
           ? t("ov.documents", { n: String(docsByTitles(Object.values(FUND_DOCS)).length) })
           : id === "guides-vc101"
@@ -1630,7 +1626,6 @@ export default function KibitoApp() {
     Object.keys(GUIDE_CONFIG).forEach((id) => (RENDERERS[id] = (c) => renderGuidePane(id, c)));
     RENDERERS["guides-reporting"] = renderReportingPane;
     RENDERERS["guides-board"] = renderBoardPane;
-    RENDERERS["guides-pitch"] = renderPitchPane;
     RENDERERS["guides-fund"] = renderFundPane;
     RENDERERS["guides-vc101"] = renderVC101Pane;
     REST_CITIES.forEach((city) => (RENDERERS["rest-" + city] = (c) => renderRestaurantCityPane(city, c)));
@@ -1709,7 +1704,9 @@ export default function KibitoApp() {
 
     // Arrancar en la sección del #hash (link directo o recarga) o, si no hay, en la bienvenida.
     function paneFromHash() {
-      const id = decodeURIComponent(location.hash.slice(1));
+      const raw = decodeURIComponent(location.hash.slice(1));
+      // La antigua página Pitch Deck se fusionó en Fundraising: los enlaces viejos siguen funcionando.
+      const id = raw === "guides-pitch" ? "guides-fund" : raw;
       return id === "chat" || RENDERERS[id] ? id : "welcome";
     }
     const initialPane = paneFromHash();
