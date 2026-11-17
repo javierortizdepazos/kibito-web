@@ -652,3 +652,10 @@ button.page-link { background:none; border:none; padding:0; color:var(--accent-2
 /* Fotos grandes en la página del equipo */
 .avatar.avatar-lg { width:60px; height:60px; font-size:19px; }
 .namecell:has(.avatar-lg) { gap:14px; }
+
+/* ---------- AI Repository: notas plegables ---------- */
+.ai-notes-toggle { display:inline-flex; align-items:center; gap:6px; margin-top:8px; padding:4px 10px 4px 8px; border:1px solid var(--border); border-radius:999px; background:var(--bg-raised); color:var(--text-light); font:inherit; font-size:12px; font-weight:600; cursor:pointer; }
+.ai-notes-toggle:hover { border-color:var(--accent-2); color:var(--accent-2); }
+.ai-notes-chev { display:inline-block; font-size:10px; transition:transform .15s; }
+.ai-notes-toggle[aria-expanded="true"] .ai-notes-chev { transform:rotate(90deg); }
+.ai-item-notes[hidden] { display:none; }

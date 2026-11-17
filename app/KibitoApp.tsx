@@ -1466,6 +1466,8 @@ export default function KibitoApp() {
          <div class="filter-result-count" id="p-count"></div>
          <div class="ai-item-list" id="p-list"></div>`;
       bindBreadcrumb(container);
+      // Las notas pueden ser muy largas: salen plegadas y se despliegan con un botón.
+      const openNotes = new Set<number>();
       function update() {
         const q = (container.querySelector("#p-search") as HTMLInputElement).value.trim().toLowerCase();
         const tag = (container.querySelector("#p-tag") as HTMLSelectElement).value;
@@ -1475,17 +1477,37 @@ export default function KibitoApp() {
         container.querySelector("#p-count")!.textContent = `${rows.length} ${t("common.of")} ${items.length}`;
         container.querySelector("#p-list")!.innerHTML =
           rows
-            .map(
-              (i) => `<div class="ai-item">
+            .map((i) => {
+              const idx = items.indexOf(i);
+              const notes = i.notes ? loc(i, "notes") : "";
+              // Si lo buscado está dentro de las notas, se abren para que se vea por qué ha salido.
+              const open = !!notes && (openNotes.has(idx) || (!!q && fold(notes).includes(fold(q))));
+              return `<div class="ai-item">
                 <div class="ai-item-head">
                   ${i.url ? `<a class="ai-item-title" href="${esc(i.url)}" target="_blank" rel="noopener">${esc(i.title)} ↗</a>` : `<span class="ai-item-title">${esc(i.title)}</span>`}
                   <div class="ai-item-tags">${(i.tags || []).map((t: string) => badge(t)).join("")}</div>
                 </div>
-                ${i.notes ? `<p class="ai-item-notes">${esc(loc(i, "notes"))}</p>` : ""}
-              </div>`
-            )
+                ${
+                  notes
+                    ? `<button type="button" class="ai-notes-toggle" data-idx="${idx}" aria-expanded="${open}" aria-controls="ai-notes-${idx}"><span class="ai-notes-chev" aria-hidden="true">▸</span><span class="ai-notes-label">${esc(t(open ? "ai.hideNotes" : "ai.showNotes"))}</span></button>
+                       <p class="ai-item-notes" id="ai-notes-${idx}"${open ? "" : " hidden"}>${esc(notes)}</p>`
+                    : ""
+                }
+              </div>`;
+            })
             .join("") || `<div style="color:var(--text-lighter);padding:20px;">${t("common.noResultsPeriod")}</div>`;
       }
+      container.querySelector("#p-list")!.addEventListener("click", (e) => {
+        const btn = (e.target as HTMLElement).closest(".ai-notes-toggle") as HTMLElement | null;
+        if (!btn) return;
+        const idx = Number(btn.dataset.idx);
+        const open = btn.getAttribute("aria-expanded") !== "true";
+        btn.setAttribute("aria-expanded", String(open));
+        btn.querySelector(".ai-notes-label")!.textContent = t(open ? "ai.hideNotes" : "ai.showNotes");
+        (document.getElementById("ai-notes-" + idx) as HTMLElement).hidden = !open;
+        if (open) openNotes.add(idx);
+        else openNotes.delete(idx);
+      });
       container.querySelector("#p-search")!.addEventListener("input", update);
       container.querySelector("#p-tag")!.addEventListener("input", update);
       update();

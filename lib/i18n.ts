@@ -448,6 +448,10 @@ export const I18N: Dict = {
   "cards.table.perks": { es: "Perks", en: "Perks" },
   "cards.table.documents": { es: "Documentos", en: "Documents" },
 
+  // ---------- AI Repository ----------
+  "ai.showNotes": { es: "Ver notas", en: "Show notes" },
+  "ai.hideNotes": { es: "Ocultar notas", en: "Hide notes" },
+
   // ---------- Pregúntale a Kibito ----------
   "ask.button": { es: "Pregúntale a Kibito", en: "Ask Kibito" },
   "ask.placeholder": { es: "¿Qué quieres saber sobre «{title}»?", en: "What would you like to know about “{title}”?" },
