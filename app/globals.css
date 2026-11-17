@@ -203,7 +203,7 @@ table.ntable tbody tr:last-child td { border-bottom:none; }
 table.ntable tbody tr:hover td { background:var(--hover); }
 .namecell { display:flex; align-items:center; gap:9px; font-weight:600; }
 .avatar { width:27px; height:27px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:11px; font-weight:700; color:#fff; flex-shrink:0; object-fit:cover; }
-.company-logo { width:56px; height:26px; border-radius:6px; object-fit:contain; background:#fff; border:1px solid var(--border); flex-shrink:0; padding:3px; }
+.company-logo { width:120px; height:52px; border-radius:8px; object-fit:contain; background:#fff; border:1px solid var(--border); flex-shrink:0; padding:4px; }
 .badge { display:inline-flex; align-items:center; padding:2.5px 10px; border-radius:99px; font-size:11.3px; font-weight:600; white-space:nowrap; }
 
 /* Document cards with thumbnail preview */
