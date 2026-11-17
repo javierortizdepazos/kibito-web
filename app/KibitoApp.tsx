@@ -100,10 +100,14 @@ export default function KibitoApp() {
       const d = new Date(iso + "T00:00:00");
       return d.toLocaleDateString(getLang() === "en" ? "en-US" : "es-ES", { day: "numeric", month: "long", year: "numeric" });
     }
+    // Búsqueda sin distinguir mayúsculas ni tildes ("gaytan" encuentra "Gaytán").
+    function fold(s: any) {
+      return String(s ?? "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
+    }
     function matches(obj: any, q: string, fields: string[]) {
       if (!q) return true;
-      const needle = q.toLowerCase();
-      return fields.some((f) => (obj[f] || "").toString().toLowerCase().includes(needle));
+      const needle = fold(q);
+      return fields.some((f) => fold(obj[f]).includes(needle));
     }
     const PALETTE = ["#EF3A47", "#4594F4", "#004B70", "#D9822B", "#0F9B53", "#5390D3", "#8B5A9E", "#000030"];
     function hashColor(str: string) {
@@ -831,7 +835,7 @@ export default function KibitoApp() {
           if (v) activeFilters[(sel as HTMLElement).dataset.filter!] = v;
         });
         const rows = cfg.rows.filter(
-          (r: any) => (!q || Object.values(r).join(" ").toLowerCase().includes(q)) && Object.entries(activeFilters).every(([k, v]) => r[k] === v)
+          (r: any) => (!q || fold(Object.values(r).join(" ")).includes(fold(q))) && Object.entries(activeFilters).every(([k, v]) => r[k] === v)
         );
         container.querySelector("#p-count")!.textContent = `${rows.length} ${t("common.of")} ${cfg.rows.length}`;
         container.querySelector("#p-tbody")!.innerHTML =
@@ -1465,7 +1469,7 @@ export default function KibitoApp() {
         const q = (container.querySelector("#p-search") as HTMLInputElement).value.trim().toLowerCase();
         const tag = (container.querySelector("#p-tag") as HTMLSelectElement).value;
         const rows = items.filter(
-          (i) => (!q || (i.title + " " + (i.notes || "")).toLowerCase().includes(q)) && (!tag || (i.tags || []).includes(tag))
+          (i) => (!q || fold(i.title + " " + (i.notes || "")).includes(fold(q))) && (!tag || (i.tags || []).includes(tag))
         );
         container.querySelector("#p-count")!.textContent = `${rows.length} ${t("common.of")} ${items.length}`;
         container.querySelector("#p-list")!.innerHTML =
